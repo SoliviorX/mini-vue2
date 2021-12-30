@@ -7,6 +7,36 @@
     <title>Vue2</title>
 </head>
 <body>
+    <div id='root'></div>
     <script src="../dist/vue.js"></script>
+    <script>
+        let vm = new Vue({
+            el: '#root',
+            data() {
+                return {
+                    aa: {
+                        a: 1
+                    },
+                    bb: 2,
+                    cc: 3
+                }
+            },
+            template: `<div>这是我自己写的vue{{computedName}}{{cc}}</div>`,
+            // template会编译成render函数，也可以直接写render函数
+            // render(h) {
+            //     return h('div', {id: 'a'}, 'hello')
+            // },
+            computed: {
+                computedName() {
+                    return this.aa + this.bb
+                }
+            }
+        })
+        // 2s后修改vue实例中的data，触发重新渲染
+        setTimeout(() => {
+            vm._data.aa.a = {b:5}
+        }, 2000)
+        console.log(vm)
+    </script>
 </body>
 </html>
