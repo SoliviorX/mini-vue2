@@ -677,21 +677,86 @@
     };
   }
 
+  function isReservedTag(tagName) {
+    // 定义常见标签
+    var str = "html,body,base,head,link,meta,style,title," + "address,article,aside,footer,header,h1,h2,h3,h4,h5,h6,hgroup,nav,section," + "div,dd,dl,dt,figcaption,figure,picture,hr,img,li,main,ol,p,pre,ul," + "a,b,abbr,bdi,bdo,br,cite,code,data,dfn,em,i,kbd,mark,q,rp,rt,rtc,ruby," + "s,samp,small,span,strong,sub,sup,time,u,var,wbr,area,audio,map,track,video," + "embed,object,param,source,canvas,script,noscript,del,ins," + "caption,col,colgroup,table,thead,tbody,td,th,tr," + "button,datalist,fieldset,form,input,label,legend,meter,optgroup,option," + "output,progress,select,textarea," + "details,dialog,menu,menuitem,summary," + "content,element,shadow,template,blockquote,iframe,tfoot";
+    var obj = {};
+    str.split(",").forEach(function (tag) {
+      obj[tag] = true;
+    });
+    return obj[tagName];
+  }
+
+  var Vnode = /*#__PURE__*/_createClass(
+  /**
+   * @param {标签名} tag
+   * @param {属性} data
+   * @param {标签唯一的key} key
+   * @param {子节点} children
+   * @param {文本节点} text
+   * @param {组件节点的其他属性} componentOptions
+   */
+  function Vnode(tag, data, key, children, text, componentOptions) {
+    _classCallCheck(this, Vnode);
+
+    console.log("🚀 ~ file: index.js ~ line 5 ~ Vnode ~ constructor ~ componentOptions", componentOptions);
+    this.tag = tag;
+    this.data = data;
+    this.key = key;
+    this.children = children;
+    this.text = text;
+    this.componentOptions = componentOptions;
+  }); // 创建元素vnode
+  function createElement(vm, tag) {
+    var data = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+    var key = data.key; // 如果是普通标签
+
+    for (var _len = arguments.length, children = new Array(_len > 3 ? _len - 3 : 0), _key = 3; _key < _len; _key++) {
+      children[_key - 3] = arguments[_key];
+    }
+
+    if (isReservedTag(tag)) {
+      return new Vnode(tag, data, key, children);
+    } else {
+      // 否则就是组件
+      vm.$options.components[tag]; //获取组件的构造函数
+
+      return createComponent();
+    }
+  } // 组件处理
+
+  function createComponent(vm, tag, data, key, children, Ctor) {// todo...如果 _c(tag,...) 创建的是自定义组件，如何处理？
+    //   if (isObject(Ctor)) {
+    //     Ctor = vm.$options._base.extend(Ctor);
+    //   }
+  } // 创建文本vnode
+
+
+  function createTextNode(vm, text) {
+    return new Vnode(undefined, undefined, undefined, undefined, text);
+  }
+
   function nextTick() {
     console.log('nextTick');
   }
 
   function renderMixin(Vue) {
-    Vue.prototype._c = function () {// 创建虚拟dom元素
-      // return createElement(this,...args);
+    Vue.prototype._c = function () {
+      for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
+        args[_key] = arguments[_key];
+      }
+
+      // 创建虚拟dom元素
+      return createElement.apply(void 0, [this].concat(args));
     };
 
-    Vue.prototype._v = function (text) {// 创建虚拟dom文本
-      // return createTextNode(this,text);
+    Vue.prototype._v = function (text) {
+      // 创建虚拟dom文本
+      return createTextNode(this, text);
     };
 
     Vue.prototype._s = function (val) {
-      // 如果模板里面的是一个对象  需要JSON.stringify
+      // 如果模板里面的是一个对象，需要JSON.stringify
       return val == null ? "" : _typeof(val) === "object" ? JSON.stringify(val) : val;
     };
 
@@ -702,11 +767,16 @@
       console.log("🚀 ~ file: render.js ~ line 28 ~ renderMixin ~ render", render); // 生成vnode--虚拟dom
 
       var vnode = render.call(vm);
+      console.log(vnode);
       return vnode;
     }; // 挂载在原型的nextTick方法
 
 
     Vue.prototype.$nextTick = nextTick;
+  }
+
+  function initGlobalApi(Vue) {
+    Vue.options._base = Vue; //_base是Vue的构造函数
   }
 
   function Vue(options) {
@@ -719,6 +789,8 @@
   lifecycleMixin(Vue); // 在原型上挂载 _update()方法（第一次创建dom及更新dom（有diff过程））
 
   renderMixin(Vue); //  在原型上挂载_c、_v、_s、$nextTick、_render()方法
+
+  initGlobalApi(Vue);
 
   return Vue;
 

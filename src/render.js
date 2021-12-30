@@ -1,16 +1,17 @@
+import { createElement, createTextNode } from "./vdom/index";
 import { nextTick } from "./util/next-tick";
 
 export function renderMixin(Vue) {
   Vue.prototype._c = function (...args) {
     // 创建虚拟dom元素
-    // return createElement(this,...args);
+    return createElement(this,...args);
   };
   Vue.prototype._v = function (text) {
     // 创建虚拟dom文本
-    // return createTextNode(this,text);
+    return createTextNode(this,text);
   };
   Vue.prototype._s = function (val) {
-    // 如果模板里面的是一个对象  需要JSON.stringify
+    // 如果模板里面的是一个对象，需要JSON.stringify
     return val == null
       ? ""
       : typeof val === "object"
@@ -25,6 +26,7 @@ export function renderMixin(Vue) {
     console.log("🚀 ~ file: render.js ~ line 28 ~ renderMixin ~ render", render);
     // 生成vnode--虚拟dom
     const vnode = render.call(vm);
+    console.log(vnode)
     return vnode;
   };
 
