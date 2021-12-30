@@ -235,22 +235,77 @@
   var attribute = /^\s*([^\s"'<>\/=]+)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/; // 匹配属性  形如 id="app"
 
   function parse(template) {
-    // 对开始标签进行处理
+    /**
+     * handleStartTag、handleEndTag、handleChars将初始解析的结果，组装成一个树结构。
+     * 使用栈结构构建树状结构
+     */
+    var root; // 根节点
+
+    var currentParent; // 下一个子元素的父元素
+
+    var stack = []; // 栈结构；栈中push/pop元素节点，对于文本节点，直接push到currentParent.children即可，不用push到栈中
+    // 表示元素和文本的type
+
+    var ELEMENT_TYPE = 1;
+    var TEXT_TYPE = 3; // 创建AST节点
+
+    function createASTElement(tagName, attrs) {
+      return {
+        tag: tagName,
+        type: ELEMENT_TYPE,
+        children: [],
+        attrs: attrs,
+        parent: null
+      };
+    } // 对开始标签进行处理
+
+
     function handleStartTag(_ref) {
       var tagName = _ref.tagName,
           attrs = _ref.attrs;
-      console.log(tagName, attrs);
+      var element = createASTElement(tagName, attrs); // 如果没有根元素，则当前元素即为根元素
+
+      if (!root) {
+        root = element;
+      }
+
+      currentParent = element; // 将元素放入栈中
+
+      stack.push(element);
     } // 对结束标签进行处理
 
 
     function handleEndTag(tagName) {
-      console.log(tagName);
+      // 处理到结束标签时，将该元素从栈中移出
+      var element = stack.pop(); // currentParent此时为element的上一个元素
+
+      currentParent = stack[stack.length - 1]; // 建立parent和children关系
+
+      if (currentParent) {
+        element.parent = currentParent;
+        currentParent.children.push(element);
+      }
     } // 对文本进行处理
 
 
     function handleChars(text) {
-      console.log(text);
+      // 去掉空格
+      text = text.replace(/\s/g, "");
+
+      if (text) {
+        currentParent.children.push({
+          type: TEXT_TYPE,
+          text: text
+        });
+      }
     }
+    /**
+     * 递归解析template，进行初步处理
+     * 解析开始标签，将结果{tagName, attrs} 交给 handleStartTag 处理
+     * 解析结束标签，将结果 tagName 交给 handleEndTag 处理
+     * 解析文本门将结果 text 交给 handleChars 处理
+     */
+
 
     while (template) {
       // 查找 < 的位置，根据它的位置判断第一个元素是什么标签
@@ -332,7 +387,11 @@
 
     function advance(n) {
       template = template.substring(n);
-    }
+    } // 返回生成的ast；root包含整个树状结构信息
+
+
+    console.log('AST', root);
+    return root;
   }
 
   function generate(ast) {
