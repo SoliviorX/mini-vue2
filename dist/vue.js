@@ -570,20 +570,107 @@
     return renderFn;
   }
 
-  function patch() {}
+  function patch(oldVnode, vnode) {
+    // 如果没有el，也没有oldVnode
+    if (!oldVnode) {
+      // 组件的创建过程是没有el属性的
+      return createElm(vnode);
+    } else {
+      // Vnode没有设置nodeType，值为undefined；真实节点可以获取到nodeType
+      var isRealElement = oldVnode.nodeType; // 如果是初次渲染
+
+      if (isRealElement) {
+        var oldElm = oldVnode;
+        var parentElm = oldElm.parentNode; // 将虚拟dom转化成真实dom节点
+
+        var el = createElm(vnode); // 插入到 老的el节点 的下一个节点的前面，就相当于插入到老的el节点的后面
+        // 这里不直接使用父元素appendChild是为了不破坏替换的位置
+
+        parentElm.insertBefore(el, oldElm.nextSibling); // 删除老的el节点
+
+        parentElm.removeChild(oldVnode);
+        return el;
+      }
+    }
+  } // 虚拟dom转成真实dom
+
+  function createElm(vnode) {
+    var tag = vnode.tag;
+        vnode.data;
+        vnode.key;
+        var children = vnode.children,
+        text = vnode.text; // 判断虚拟dom 是元素节点还是文本节点（文本节点tag为undefined）
+
+    if (typeof tag === "string") {
+      // 虚拟dom的el属性指向真实dom，方便后续更新diff算法操作
+      vnode.el = document.createElement(tag); // 解析vnode属性
+
+      updateProperties(vnode); // 如果有子节点就递归插入到父节点里面
+
+      children.forEach(function (child) {
+        return vnode.el.appendChild(createElm(child));
+      });
+    } else {
+      vnode.el = document.createTextNode(text);
+    }
+
+    return vnode.el;
+  } // 解析vnode的data属性，映射到真实dom上
+
+
+  function updateProperties(vnode) {
+    var oldProps = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+    var newProps = vnode.data || {};
+    var el = vnode.el; // 真实节点
+    // 如果新的节点没有 需要把老的节点属性移除
+
+    for (var k in oldProps) {
+      if (!newProps[k]) {
+        el.removeAttribute(k);
+      }
+    } // 对style样式做特殊处理 如果新的没有 需要把老的style值置为空
+
+
+    var newStyle = newProps.style || {};
+    var oldStyle = oldProps.style || {};
+
+    for (var key in oldStyle) {
+      if (!newStyle[key]) {
+        el.style[key] = "";
+      }
+    } // 遍历新的属性 进行增加操作
+
+
+    for (var _key in newProps) {
+      if (_key === "style") {
+        for (var styleName in newProps.style) {
+          el.style[styleName] = newProps.style[styleName];
+        }
+      } else if (_key === "class") {
+        el.className = newProps["class"];
+      } else {
+        // 给这个元素添加属性 值就是对应的值
+        el.setAttribute(_key, newProps[_key]);
+      }
+    }
+  }
 
   function lifecycleMixin(Vue) {
+    // _update：初始挂载及后续更新
+    // 更新的时候，不会重新进行模板编译，因为更新只是数据发生变化，render函数没有改变。
     Vue.prototype._update = function (vnode) {
       var vm = this;
-      var prevVnode = vm === null || vm === void 0 ? void 0 : vm._vnode; // 保留上一次的vnode
+      var prevVnode = vm._vnode; // 保留上一次的vnode
 
       vm._vnode = vnode; // 获取本次的vnode
+      // 【核心】patch是渲染vnode为真实dom
 
       if (!prevVnode) {
-        // patch是渲染vnode为真实dom核心
-        vm.$el = patch(vm.$el); // 初次渲染 vm._vnode肯定不存在 要通过虚拟节点 渲染出真实的dom 赋值给$el属性
+        // 初次渲染
+        vm.$el = patch(vm.$el, vnode); // 初次渲染 vm._vnode肯定不存在 要通过虚拟节点 渲染出真实的dom 赋值给$el属性
       } else {
-        vm.$el = patch(); // 更新时把上次的vnode和这次更新的vnode穿进去 进行diff算法
+        // 视图更新
+        vm.$el = patch(prevVnode, vnode); // 更新时把上次的vnode和这次更新的vnode穿进去 进行diff算法
       }
     };
   }
@@ -699,7 +786,10 @@
   function Vnode(tag, data, key, children, text, componentOptions) {
     _classCallCheck(this, Vnode);
 
-    console.log("🚀 ~ file: index.js ~ line 5 ~ Vnode ~ constructor ~ componentOptions", componentOptions);
+    // console.log(
+    //   "🚀 ~ file: index.js ~ line 5 ~ Vnode ~ constructor ~ componentOptions",
+    //   componentOptions
+    // );
     this.tag = tag;
     this.data = data;
     this.key = key;
@@ -718,7 +808,8 @@
     if (isReservedTag(tag)) {
       return new Vnode(tag, data, key, children);
     } else {
-      // 否则就是组件
+      console.log("将自定义组件render函数解析成Vnode"); // 否则就是组件
+
       vm.$options.components[tag]; //获取组件的构造函数
 
       return createComponent();
@@ -763,20 +854,15 @@
     Vue.prototype._render = function () {
       var vm = this; // 获取模板编译生成的render方法
 
-      var render = vm.$options.render;
-      console.log("🚀 ~ file: render.js ~ line 28 ~ renderMixin ~ render", render); // 生成vnode--虚拟dom
+      var render = vm.$options.render; // 生成vnode--虚拟dom
 
       var vnode = render.call(vm);
-      console.log(vnode);
+      console.log("🚀 ~ file: render.js ~ renderMixin ~ _render ~ vnode", vnode);
       return vnode;
     }; // 挂载在原型的nextTick方法
 
 
     Vue.prototype.$nextTick = nextTick;
-  }
-
-  function initGlobalApi(Vue) {
-    Vue.options._base = Vue; //_base是Vue的构造函数
   }
 
   function Vue(options) {
@@ -789,8 +875,6 @@
   lifecycleMixin(Vue); // 在原型上挂载 _update()方法（第一次创建dom及更新dom（有diff过程））
 
   renderMixin(Vue); //  在原型上挂载_c、_v、_s、$nextTick、_render()方法
-
-  initGlobalApi(Vue);
 
   return Vue;
 

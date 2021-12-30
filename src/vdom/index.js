@@ -10,10 +10,10 @@ export default class Vnode {
    * @param {组件节点的其他属性} componentOptions
    */
   constructor(tag, data, key, children, text, componentOptions) {
-    console.log(
-      "🚀 ~ file: index.js ~ line 5 ~ Vnode ~ constructor ~ componentOptions",
-      componentOptions
-    );
+    // console.log(
+    //   "🚀 ~ file: index.js ~ line 5 ~ Vnode ~ constructor ~ componentOptions",
+    //   componentOptions
+    // );
     this.tag = tag;
     this.data = data;
     this.key = key;
@@ -30,6 +30,7 @@ export function createElement(vm, tag, data = {}, ...children) {
   if (isReservedTag(tag)) {
     return new Vnode(tag, data, key, children);
   } else {
+    console.log("将自定义组件render函数解析成Vnode");
     // 否则就是组件
     let Ctor = vm.$options.components[tag]; //获取组件的构造函数
     return createComponent(vm, tag, data, key, children, Ctor);

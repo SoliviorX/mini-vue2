@@ -2,14 +2,19 @@ import { patch } from "./vdom/patch";
 // import Watcher from "./observer/watcher";
 
 export function lifecycleMixin(Vue) {
+  // _update：初始挂载及后续更新
+  // 更新的时候，不会重新进行模板编译，因为更新只是数据发生变化，render函数没有改变。
   Vue.prototype._update = function (vnode) {
     const vm = this;
-    const prevVnode = vm?._vnode; // 保留上一次的vnode
+    const prevVnode = vm._vnode; // 保留上一次的vnode
     vm._vnode = vnode; // 获取本次的vnode
+
+    // 【核心】patch是渲染vnode为真实dom
     if (!prevVnode) {
-      // patch是渲染vnode为真实dom核心
+      // 初次渲染
       vm.$el = patch(vm.$el, vnode); // 初次渲染 vm._vnode肯定不存在 要通过虚拟节点 渲染出真实的dom 赋值给$el属性
     } else {
+      // 视图更新
       vm.$el = patch(prevVnode, vnode); // 更新时把上次的vnode和这次更新的vnode穿进去 进行diff算法
     }
   };

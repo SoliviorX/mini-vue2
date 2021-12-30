@@ -23,10 +23,10 @@ export function renderMixin(Vue) {
     const vm = this;
     // 获取模板编译生成的render方法
     const { render } = vm.$options;
-    console.log("🚀 ~ file: render.js ~ line 28 ~ renderMixin ~ render", render);
+    
     // 生成vnode--虚拟dom
     const vnode = render.call(vm);
-    console.log(vnode)
+    console.log("🚀 ~ file: render.js ~ renderMixin ~ _render ~ vnode", vnode);
     return vnode;
   };
 
