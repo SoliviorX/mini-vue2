@@ -14,11 +14,11 @@
             el: '#root',
             data() {
                 return {
-                    aa: {
+                    obj1: {
                         a: 1
                     },
-                    bb: 2,
-                    cc: 3
+                    arr1: [1,2,{a:1,b:2}],
+                    number1: 3
                 }
             },
             template: `<div>这是我自己写的vue{{computedName}}{{cc}}</div>`,
@@ -28,13 +28,13 @@
             // },
             computed: {
                 computedName() {
-                    return this.aa + this.bb
+                    return this.number1 + 3
                 }
             }
         })
         // 2s后修改vue实例中的data，触发重新渲染
         setTimeout(() => {
-            vm._data.aa.a = {b:5}
+            vm._data.obj1.a = {b:5}
         }, 2000)
         console.log(vm)
     </script>
