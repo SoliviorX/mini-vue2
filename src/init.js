@@ -50,7 +50,8 @@ export function initMixin(Vue) {
       }
     }
 
-    // 将当前组件实例挂载到真实的el节点上面
+    // 调用render方法，渲染成真实DOM
+    // 组件挂载方法
     return mountComponent(vm, el);
   };
 }

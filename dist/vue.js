@@ -39,6 +39,65 @@
     return Constructor;
   }
 
+  function _slicedToArray(arr, i) {
+    return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _unsupportedIterableToArray(arr, i) || _nonIterableRest();
+  }
+
+  function _arrayWithHoles(arr) {
+    if (Array.isArray(arr)) return arr;
+  }
+
+  function _iterableToArrayLimit(arr, i) {
+    var _i = arr == null ? null : typeof Symbol !== "undefined" && arr[Symbol.iterator] || arr["@@iterator"];
+
+    if (_i == null) return;
+    var _arr = [];
+    var _n = true;
+    var _d = false;
+
+    var _s, _e;
+
+    try {
+      for (_i = _i.call(arr); !(_n = (_s = _i.next()).done); _n = true) {
+        _arr.push(_s.value);
+
+        if (i && _arr.length === i) break;
+      }
+    } catch (err) {
+      _d = true;
+      _e = err;
+    } finally {
+      try {
+        if (!_n && _i["return"] != null) _i["return"]();
+      } finally {
+        if (_d) throw _e;
+      }
+    }
+
+    return _arr;
+  }
+
+  function _unsupportedIterableToArray(o, minLen) {
+    if (!o) return;
+    if (typeof o === "string") return _arrayLikeToArray(o, minLen);
+    var n = Object.prototype.toString.call(o).slice(8, -1);
+    if (n === "Object" && o.constructor) n = o.constructor.name;
+    if (n === "Map" || n === "Set") return Array.from(o);
+    if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen);
+  }
+
+  function _arrayLikeToArray(arr, len) {
+    if (len == null || len > arr.length) len = arr.length;
+
+    for (var i = 0, arr2 = new Array(len); i < len; i++) arr2[i] = arr[i];
+
+    return arr2;
+  }
+
+  function _nonIterableRest() {
+    throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+  }
+
   function isFunction(val) {
     return typeof val === 'function';
   }
@@ -237,7 +296,7 @@
   function parse(template) {
     /**
      * handleStartTag、handleEndTag、handleChars将初始解析的结果，组装成一个树结构。
-     * 使用栈结构构建树状结构
+     * 使用栈结构构建AST树
      */
     var root; // 根节点
 
@@ -277,7 +336,12 @@
 
     function handleEndTag(tagName) {
       // 处理到结束标签时，将该元素从栈中移出
-      var element = stack.pop(); // currentParent此时为element的上一个元素
+      var element = stack.pop();
+
+      if (element.tag !== tagName) {
+        throw new Error('标签名有误');
+      } // currentParent此时为element的上一个元素
+
 
       currentParent = stack[stack.length - 1]; // 建立parent和children关系
 
@@ -390,17 +454,106 @@
     } // 返回生成的ast；root包含整个树状结构信息
 
 
-    console.log('AST', root);
     return root;
   }
 
+  var defaultTagRE = /\{\{((?:.|\r?\n)+?)\}\}/g; // 匹配花括号 {{  }}；捕获花括号里面的内容
+
+  function gen(node) {
+    // 如果是元素类型
+    if (node.type == 1) {
+      // 【关键】递归创建
+      return generate(node);
+    } else {
+      // else即文本类型
+      var text = node.text; // 1. 如果text中不存在花括号变量表达式
+
+      if (!defaultTagRE.test(text)) {
+        // _v表示创建文本
+        return "_v(".concat(JSON.stringify(text), ")");
+      } // 正则是全局模式 每次需要重置正则的lastIndex属性，不然会引发匹配bug（defaultTagRE.exec()匹配完一次后，再次匹配为null，需要重置lastIndex）
+
+
+      var lastIndex = defaultTagRE.lastIndex = 0;
+      var tokens = [];
+      var match, index; // 2. 如果text中存在花括号变量（使用while循环，是因为可能存在多个{{变量}}）
+
+      while (match = defaultTagRE.exec(text)) {
+        // match如果匹配成功，其结构为：['{{myValue}}', 'myValue', index: indexof({) ]
+        // index代表匹配到的位置
+        index = match.index; // 初始 lastIndex 为0，index > lastIndex 表示在{{ 前有普通文本
+
+        if (index > lastIndex) {
+          // 在tokens里面放入 {{ 之前的普通文本
+          tokens.push(JSON.stringify(text.slice(lastIndex, index)));
+        } // tokens中放入捕获到的变量内容
+
+
+        tokens.push("_s(".concat(match[1].trim(), ")")); // 匹配指针后移，移到 }} 后面
+
+        lastIndex = index + match[0].length;
+      } // 3. 如果匹配完了花括号，text里面还有剩余的普通文本，那么继续push
+
+
+      if (lastIndex < text.length) {
+        tokens.push(JSON.stringify(text.slice(lastIndex)));
+      } // _v表示创建文本
+
+
+      return "_v(".concat(tokens.join("+"), ")");
+    }
+  } // 生成子节点：遍历children调用gen(item)，使用逗号拼接每一项的结果
+
+
+  function getChildren(el) {
+    var children = el.children;
+
+    if (children) {
+      return "".concat(children.map(function (c) {
+        return gen(c);
+      }).join(","));
+    }
+  } // 处理attrs/props属性：将[{name: 'class', value: 'home'}, {name: 'style', value: "font-size:12px;color:red"}]
+  //                  转化成 "class:"home",style:{"font-size":"12px","color":"red"}"
+
+
+  function genProps(attrs) {
+    var str = "";
+
+    for (var i = 0; i < attrs.length; i++) {
+      var attr = attrs[i]; // 对attrs属性里面的style做特殊处理
+
+      if (attr.name === "style") {
+        (function () {
+          var obj = {};
+          attr.value.split(";").forEach(function (item) {
+            var _item$split = item.split(":"),
+                _item$split2 = _slicedToArray(_item$split, 2),
+                key = _item$split2[0],
+                value = _item$split2[1];
+
+            obj[key] = value;
+          });
+          attr.value = obj;
+        })();
+      }
+
+      str += "".concat(attr.name, ":").concat(JSON.stringify(attr.value), ",");
+    }
+
+    return "{".concat(str.slice(0, -1), "}");
+  }
+
   function generate(ast) {
-    console.log(ast);
+    var children = getChildren(ast);
+    var code = "_c('".concat(ast.tag, "',").concat(ast.attrs.length ? "".concat(genProps(ast.attrs)) : "undefined").concat(children ? ",".concat(children) : "", ")");
+    return code;
   }
 
   function compileToFunctions(template) {
     // 1. 把template转成AST语法树；AST用来描述代码本身形成树结构，不仅可以描述html，也能描述css以及js语法
-    var ast = parse(template); // 2. 优化静态节点
+    var ast = parse(template);
+    console.log("AST", ast); // 2. 优化静态节点
     // 这个有兴趣的可以去看源码  不影响核心功能就不实现了
     //   if (options.optimize !== false) {
     //     optimize(ast, options);
@@ -410,7 +563,8 @@
     // 类似_c('div',{id:"app"},_c('div',undefined,_v("hello"+_s(name)),_c('span',undefined,_v("world"))))
     // _c代表创建元素 _v代表创建文本 _s代表文Json.stringify--把对象解析成文本
 
-    var code = generate(ast); // 通过new Function生成函数
+    var code = generate(ast);
+    console.log("code", code); // 通过new Function生成函数
 
     var renderFn = new Function("with(this){return ".concat(code, "}"));
     return renderFn;
@@ -464,7 +618,8 @@
           var render = compileToFunctions(template);
           options.render = render;
         }
-      } // 将当前组件实例挂载到真实的el节点上面
+      } // 调用render方法，渲染成真实DOM
+      // 组件挂载方法
 
 
       return mountComponent();

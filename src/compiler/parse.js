@@ -157,6 +157,5 @@ export function parse(template) {
   }
 
   // 返回生成的ast；root包含整个树状结构信息
-  console.log('AST', root)
   return root;
 }
