@@ -1,0 +1,22 @@
+{
+  "name": "vue2-analyze",
+  "version": "1.0.0",
+  "description": "手写vue2源码",
+  "main": "index.js",
+  "scripts": {
+    "serve": "cross-env ENV=development rollup -c -w",
+    "build:dev": "rollup -c"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@babel/core": "^7.16.5",
+    "@babel/preset-env": "^7.16.5",
+    "babel-eslint": "^10.1.0",
+    "cross-env": "^7.0.3",
+    "rollup": "^2.62.0",
+    "rollup-plugin-babel": "^4.4.0",
+    "rollup-plugin-serve": "^1.1.0"
+  }
+}

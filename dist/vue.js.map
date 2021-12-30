@@ -1,0 +1,1 @@
+{"version":3,"file":"vue.js","sources":["../src/index.js"],"sourcesContent":["let a = 'hello world'\r\nalert(a)"],"names":["a","alert"],"mappings":";;;;;CAAA,IAAIA,CAAC,GAAG,aAAR;CACAC,KAAK,CAACD,CAAD,CAAL;;;;;;"}
