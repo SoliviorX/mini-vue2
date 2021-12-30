@@ -4,17 +4,19 @@
  */
 import { initState } from "./state";
 import { compileToFunctions } from './compiler/index'
-import { mountComponent } from './lifecycle'
+import { callHook, mountComponent } from './lifecycle'
 
 export function initMixin(Vue) {
   Vue.prototype._init = function (options) {
     // this指向实例
     const vm = this;
     vm.$options = options; // 后面会对options进行扩展
-
+    callHook(vm, "beforeCreate");
+    
     // 初始化状态，包括initProps、initMethod、initData、initComputed、initWatch等
     initState(vm);
 
+    callHook(vm, "created");
     // 如果有el属性 进行模板渲染
     if (vm.$options.el) {
       vm.$mount(vm.$options.el);

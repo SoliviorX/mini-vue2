@@ -1,3 +1,50 @@
-export function mountComponent(vm,el) {
-    console.log('挂载节点到页面')
+import { patch } from "./vdom/patch";
+// import Watcher from "./observer/watcher";
+
+export function lifecycleMixin(Vue) {
+  Vue.prototype._update = function (vnode) {
+    const vm = this;
+    const prevVnode = vm?._vnode; // 保留上一次的vnode
+    vm._vnode = vnode; // 获取本次的vnode
+    if (!prevVnode) {
+      // patch是渲染vnode为真实dom核心
+      vm.$el = patch(vm.$el, vnode); // 初次渲染 vm._vnode肯定不存在 要通过虚拟节点 渲染出真实的dom 赋值给$el属性
+    } else {
+      vm.$el = patch(prevVnode, vnode); // 更新时把上次的vnode和这次更新的vnode穿进去 进行diff算法
+    }
+  };
+}
+
+/**
+ * 1. 调用render方法，生成虚拟DOM —— 即执行 vm._render()
+ * 2. 将VNode渲染成真实DOM —— 即执行 vm._update(VNode)
+ */
+export function mountComponent(vm, el) {
+  vm.$el = el;
+  // 执行beforeMount生命周期钩子
+  callHook(vm, "beforeMount");
+
+  let updateComponent = () => {
+    vm._update(vm._render());
+  };
+  updateComponent();
+  //   new Watcher(
+  //     vm,
+  //     updateComponent,
+  //     () => {
+  //       callHook(vm, "beforeUpdate");
+  //     },
+  //     true
+  //   );
+  callHook(vm, "mounted");
+}
+
+export function callHook(vm, hook) {
+  // 依次执行生命周期对应的方法
+  const handlers = vm.$options[hook];
+  if (handlers) {
+    for (let i = 0; i < handlers.length; i++) {
+      handlers[i].call(vm); //生命周期里面的this指向当前实例
+    }
+  }
 }

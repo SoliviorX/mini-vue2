@@ -570,8 +570,57 @@
     return renderFn;
   }
 
+  function patch() {}
+
+  function lifecycleMixin(Vue) {
+    Vue.prototype._update = function (vnode) {
+      var vm = this;
+      var prevVnode = vm === null || vm === void 0 ? void 0 : vm._vnode; // 保留上一次的vnode
+
+      vm._vnode = vnode; // 获取本次的vnode
+
+      if (!prevVnode) {
+        // patch是渲染vnode为真实dom核心
+        vm.$el = patch(vm.$el); // 初次渲染 vm._vnode肯定不存在 要通过虚拟节点 渲染出真实的dom 赋值给$el属性
+      } else {
+        vm.$el = patch(); // 更新时把上次的vnode和这次更新的vnode穿进去 进行diff算法
+      }
+    };
+  }
+  /**
+   * 1. 调用render方法，生成虚拟DOM —— 即执行 vm._render()
+   * 2. 将VNode渲染成真实DOM —— 即执行 vm._update(VNode)
+   */
+
   function mountComponent(vm, el) {
-    console.log('挂载节点到页面');
+    vm.$el = el; // 执行beforeMount生命周期钩子
+
+    callHook(vm, "beforeMount");
+
+    var updateComponent = function updateComponent() {
+      vm._update(vm._render());
+    };
+
+    updateComponent(); //   new Watcher(
+    //     vm,
+    //     updateComponent,
+    //     () => {
+    //       callHook(vm, "beforeUpdate");
+    //     },
+    //     true
+    //   );
+
+    callHook(vm, "mounted");
+  }
+  function callHook(vm, hook) {
+    // 依次执行生命周期对应的方法
+    var handlers = vm.$options[hook];
+
+    if (handlers) {
+      for (var i = 0; i < handlers.length; i++) {
+        handlers[i].call(vm); //生命周期里面的this指向当前实例
+      }
+    }
   }
 
   /**
@@ -583,9 +632,11 @@
       // this指向实例
       var vm = this;
       vm.$options = options; // 后面会对options进行扩展
-      // 初始化状态，包括initProps、initMethod、initData、initComputed、initWatch等
 
-      initState(vm); // 如果有el属性 进行模板渲染
+      callHook(vm, "beforeCreate"); // 初始化状态，包括initProps、initMethod、initData、initComputed、initWatch等
+
+      initState(vm);
+      callHook(vm, "created"); // 如果有el属性 进行模板渲染
 
       if (vm.$options.el) {
         vm.$mount(vm.$options.el);
@@ -622,8 +673,40 @@
       // 组件挂载方法
 
 
-      return mountComponent();
+      return mountComponent(vm, el);
     };
+  }
+
+  function nextTick() {
+    console.log('nextTick');
+  }
+
+  function renderMixin(Vue) {
+    Vue.prototype._c = function () {// 创建虚拟dom元素
+      // return createElement(this,...args);
+    };
+
+    Vue.prototype._v = function (text) {// 创建虚拟dom文本
+      // return createTextNode(this,text);
+    };
+
+    Vue.prototype._s = function (val) {
+      // 如果模板里面的是一个对象  需要JSON.stringify
+      return val == null ? "" : _typeof(val) === "object" ? JSON.stringify(val) : val;
+    };
+
+    Vue.prototype._render = function () {
+      var vm = this; // 获取模板编译生成的render方法
+
+      var render = vm.$options.render;
+      console.log("🚀 ~ file: render.js ~ line 28 ~ renderMixin ~ render", render); // 生成vnode--虚拟dom
+
+      var vnode = render.call(vm);
+      return vnode;
+    }; // 挂载在原型的nextTick方法
+
+
+    Vue.prototype.$nextTick = nextTick;
   }
 
   function Vue(options) {
@@ -631,7 +714,11 @@
     this._init(options);
   }
 
-  initMixin(Vue);
+  initMixin(Vue); // 在原型上挂载_init()（数据监控；props、events、computed、watch初始化等）、$mount()（compiler流程）方法
+
+  lifecycleMixin(Vue); // 在原型上挂载 _update()方法（第一次创建dom及更新dom（有diff过程））
+
+  renderMixin(Vue); //  在原型上挂载_c、_v、_s、$nextTick、_render()方法
 
   return Vue;
 
