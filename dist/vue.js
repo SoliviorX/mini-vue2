@@ -225,6 +225,10 @@
     console.log('template', template);
   }
 
+  function mountComponent(vm, el) {
+    console.log(el, vm);
+  }
+
   /**
    * initMixin
    * 表示在vue的基础上做一次混合操作
