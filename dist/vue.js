@@ -149,12 +149,13 @@
 
     Object.defineProperty(data, key, {
       get: function get() {
+        // todo...收集依赖
         return value;
       },
       set: function set(newVal) {
         // 对新数据进行观察
         observe(newVal);
-        value = newVal;
+        value = newVal; // todo...更新视图
       }
     });
   }
@@ -220,6 +221,10 @@
     }
   }
 
+  function compileToFunctions(template) {
+    console.log('template', template);
+  }
+
   /**
    * initMixin
    * 表示在vue的基础上做一次混合操作
@@ -231,7 +236,43 @@
       vm.$options = options; // 后面会对options进行扩展
       // 初始化状态，包括initProps、initMethod、initData、initComputed、initWatch等
 
-      initState(vm);
+      initState(vm); // 如果有el属性 进行模板渲染
+
+      if (vm.$options.el) {
+        vm.$mount(vm.$options.el);
+      }
+    };
+
+    Vue.prototype.$mount = function (el) {
+      // $mount 由vue实例调用，所以this指向vue实例
+      var vm = this;
+      var options = vm.$options;
+      el = document.querySelector(el);
+      /**
+       * 1. 把模板转化成render函数
+       * 2. 执行render函数，生成VNode
+       * 3. 更新时进行diff
+       * 4. 产生真实DOM
+       */
+      // 可以直接在options中写render函数，它的优先级比template高
+
+      if (!options.render) {
+        var template = options.template; // 如果不存在render和template但是存在el属性，则直接将template赋值为el元素
+
+        if (!template && el) {
+          template = el.outerHTML;
+        } // 最终需要把tempalte模板转化成render函数
+
+
+        if (template) {
+          // 将template转化成render函数
+          var render = compileToFunctions(template);
+          options.render = render;
+        }
+      } // 将当前组件实例挂载到真实的el节点上面
+
+
+      return mountComponent(vm, el);
     };
   }
 

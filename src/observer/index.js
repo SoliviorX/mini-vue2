@@ -61,12 +61,14 @@ function defineReactive(data, key, value) {
 
   Object.defineProperty(data, key, {
     get() {
+      // todo...收集依赖
       return value;
     },
     set(newVal) {
       // 对新数据进行观察
       observe(newVal);
       value = newVal;
+      // todo...更新视图
     },
   });
 }
