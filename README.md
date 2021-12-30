@@ -14,10 +14,10 @@ git clone git@github.com:Shideshanxx/vite-vue3-lowcode.git
 
 ## 功能清单
 分支 ——> 功能
-1-data-observe：实现数据监控
-2-compiler：实现模板编译，template——>AST——>render函数
-3-virTialDOM：实现创建虚拟DOM及数据渲染
-...
++ 1-data-observe：实现数据监控
++ 2-compiler：实现模板编译，template——>AST——>render函数
++ 3-virTialDOM：实现创建虚拟DOM及数据渲染
++ ...
 
 ## 开发文档
 开发文档与分支一一对应，文档中具体介绍相关分支实现的功能流程及要点

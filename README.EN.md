@@ -15,10 +15,10 @@ git clone git@github.com:Shideshanxx/vite-vue3-lowcode.git
 
 ## Function List
 branch ——> Function
-1-data-observe：Realize data monitoring
-2-compiler：Implement template compilation，template——>AST——>render function
-3-virTialDOM：Realize the creation of virtual DOM and data rendering
-...
++ 1-data-observe：Realize data monitoring
++ 2-compiler：Implement template compilation，template——>AST——>render function
++ 3-virTialDOM：Realize the creation of virtual DOM and data rendering
++ ...
 
 ## Development Document
 One-to-one correspondence between development documents and branches. The document specifically introduces the functional processes and key points implemented by the relevant branches.
