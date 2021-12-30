@@ -1,3 +1,3 @@
 export function mountComponent(vm,el) {
-    console.log(el, vm)
+    console.log('挂载节点到页面')
 }
