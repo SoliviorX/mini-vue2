@@ -32,9 +32,25 @@ export function initState(vm) {
     // vue组件data推荐使用函数 防止数据在组件之间共享
     data = vm._data = isFunction(data) ? data.call(vm) : data;
 
+    // 将vm._data上的所有属性代理到 vm 上
+    for (let key in data) {
+      proxy(vm, "_data", key);
+    }
     // 对数据进行观测 -- 数据响应式
     observe(data);
   }
   function initComputed() {}
   function initWatch() {}
+
+  // 将vm._data上的属性代理到 vm 上
+  function proxy(vm, source, key) {
+    Object.defineProperty(vm, key, {
+      get() {
+        return vm[source][key];
+      },
+      set(newValue) {
+        vm[source][key] = newValue;
+      },
+    });
+  }
 }

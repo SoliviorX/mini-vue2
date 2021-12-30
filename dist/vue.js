@@ -117,9 +117,26 @@
       var data = vm.$options.data; // 往实例上添加一个属性 _data，即传入的data
       // vue组件data推荐使用函数 防止数据在组件之间共享
 
-      data = vm._data = isFunction(data) ? data.call(vm) : data; // 对数据进行观测 -- 数据响应式
+      data = vm._data = isFunction(data) ? data.call(vm) : data; // 将vm._data上的所有属性代理到 vm 上
+
+      for (var key in data) {
+        proxy(vm, "_data", key);
+      } // 对数据进行观测 -- 数据响应式
+
 
       observe(data);
+    }
+
+
+    function proxy(vm, source, key) {
+      Object.defineProperty(vm, key, {
+        get: function get() {
+          return vm[source][key];
+        },
+        set: function set(newValue) {
+          vm[source][key] = newValue;
+        }
+      });
     }
   }
 
