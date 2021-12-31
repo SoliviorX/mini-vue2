@@ -72,6 +72,7 @@ function genProps(attrs) {
   return `{${str.slice(0, -1)}}`;
 }
 
+// 将ast转化成render函数
 export function generate(ast) {
   let children = getChildren(ast);
 

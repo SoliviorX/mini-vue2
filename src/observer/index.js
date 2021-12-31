@@ -13,7 +13,7 @@ class Observer {
     // 在数据data上新增属性 data.__ob__；指向经过new Observer(data)创建的实例，可以访问Observer.prototype上的方法observeArray、walk等
     // 所有被劫持过的数据都有__ob__属性（通过这个属性可以判断数据是否被检测过）
     Object.defineProperty(data, "__ob__", {
-      //  值指代的就是Observer的实例
+      // 值指代的就是Observer的实例，即监控的数据
       value: this,
       //  设为不可枚举，防止在forEach对每一项响应式的时候监控__ob__，造成死循环
       enumerable: false,
@@ -29,7 +29,6 @@ class Observer {
      */
     if (Array.isArray(data)) {
       // 数组响应式处理
-
       // 重写数组的原型方法，将data原型指向重写后的对象
       data.__proto__ = arrayMethods;
 
