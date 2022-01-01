@@ -31,6 +31,9 @@ methods.forEach(method => {
         }
         // inserted是个数组，需要调用observeArray来监测
         if (inserted) ob.observeArray(inserted);
+
+        // 数组派发更新
+        ob.dep.notify()
         return result
     }
 })

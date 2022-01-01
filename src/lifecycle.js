@@ -1,5 +1,5 @@
 import { patch } from "./vdom/patch";
-// import Watcher from "./observer/watcher";
+import Watcher from "./observer/watcher";
 
 export function lifecycleMixin(Vue) {
   // _update：初始挂载及后续更新
@@ -15,7 +15,7 @@ export function lifecycleMixin(Vue) {
       vm.$el = patch(vm.$el, vnode); // 初次渲染 vm._vnode肯定不存在 要通过虚拟节点 渲染出真实的dom 赋值给$el属性
     } else {
       // 视图更新
-      vm.$el = patch(prevVnode, vnode); // 更新时把上次的vnode和这次更新的vnode穿进去 进行diff算法
+      vm.$el = patch(prevVnode, vnode, vm); // 更新时把上次的vnode和这次更新的vnode穿进去 进行diff算法
     }
   };
 }
@@ -32,15 +32,17 @@ export function mountComponent(vm, el) {
   let updateComponent = () => {
     vm._update(vm._render());
   };
-  updateComponent();
-  //   new Watcher(
-  //     vm,
-  //     updateComponent,
-  //     () => {
-  //       callHook(vm, "beforeUpdate");
-  //     },
-  //     true
-  //   );
+
+  // 每个组件渲染的时候，都会创建一个watcher，并执行updateComponent；true表示是渲染Watcher
+  new Watcher(
+    vm,
+    updateComponent,
+    () => {
+      console.log('视图更新了')
+      callHook(vm, "beforeUpdate");
+    },
+    true
+  );
   callHook(vm, "mounted");
 }
 

@@ -1,5 +1,6 @@
 import { isObject } from "../utils";
 import { arrayMethods } from "./array";
+import Dep from "./dep";
 
 /**
  * 数据劫持：
@@ -10,10 +11,13 @@ import { arrayMethods } from "./array";
 class Observer {
   // 通过new命令生成class实例时，会自动调用constructor()，即会执行this.walk(data)方法
   constructor(data) {
+    this.value = data
+    this.dep = new Dep(); // 给data添加一个dep，收集data整体的一个dep（主要用于数组的依赖收集）
+
     // 在数据data上新增属性 data.__ob__；指向经过new Observer(data)创建的实例，可以访问Observer.prototype上的方法observeArray、walk等
     // 所有被劫持过的数据都有__ob__属性（通过这个属性可以判断数据是否被检测过）
     Object.defineProperty(data, "__ob__", {
-      //  值指代的就是Observer的实例
+      // 值指代的就是Observer的实例，即监控的数据
       value: this,
       //  设为不可枚举，防止在forEach对每一项响应式的时候监控__ob__，造成死循环
       enumerable: false,
@@ -29,7 +33,6 @@ class Observer {
      */
     if (Array.isArray(data)) {
       // 数组响应式处理
-
       // 重写数组的原型方法，将data原型指向重写后的对象
       data.__proto__ = arrayMethods;
 
@@ -56,21 +59,51 @@ class Observer {
 }
 
 function defineReactive(data, key, value) {
-  observe(value); // 【关键】递归，劫持对象中所有层级的所有属性
+  let childOb =  observe(value); // 【关键】递归，劫持对象中所有层级的所有属性
   // 如果Vue数据嵌套层级过深 >> 性能会受影响【******************************】
 
+  let dep = new Dep() // 为每个属性创建一个独一无二的dep
   Object.defineProperty(data, key, {
     get() {
-      // todo...收集依赖
+      if(Dep.target) {
+        dep.depend()
+        
+        // 如果属性的值依然是一个数组/对象，则对该 数组/对象 整体进行依赖收集
+        if(childOb) {
+          childOb.dep.depend(); // 让对象和数组也记录watcher
+          // 如果数据结构类似 {a:[1,2,[3,4,[5,6]]]} 这种数组多层嵌套，数组包含数组的情况，那么我们访问a的时候，只是对第一层的数组进行了依赖收集
+          // 里面的数组因为没访问到，所以无法收集依赖，但是如果我们改变了a里面的第二层数组的值，是需要更新页面的，所以需要对数组递归进行依赖收集
+          if (Array.isArray(value)) {
+            // 如果内部还是数组
+            dependArray(value); // 遍历 + 递归数组，对数组不同层级的所有数组元素 进行依赖收集
+          }
+        }
+      }
       return value;
     },
     set(newVal) {
+      if (newVal === value) return;
       // 对新数据进行观察
       observe(newVal);
       value = newVal;
-      // todo...更新视图
+
+      console.log('-------------------数据更新，通知watchers更新-------------------')
+      dep.notify(); // 通知dep存放的watcher去更新--派发更新
     },
   });
+}
+
+// 递归收集数组依赖
+function dependArray(value) {
+  for (let e, i = 0, l = value.length; i < l; i++) {
+    e = value[i];
+    // 对每一项进行依赖收集
+    e && e.__ob__ && e.__ob__.dep.depend();
+    if (Array.isArray(e)) {
+      // 【递归】如果数组里面还有数组，就递归去收集依赖
+      dependArray(e);
+    }
+  }
 }
 
 export function observe(data) {
@@ -80,7 +113,7 @@ export function observe(data) {
   }
   // 如果已经是响应式的数据，直接return
   if (data.__ob__) {
-    return;
+    return data.__ob__;
   }
   // 返回经过响应式处理之后的data
   return new Observer(data);

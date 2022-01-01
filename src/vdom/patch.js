@@ -1,4 +1,4 @@
-export function patch(oldVnode, vnode) {
+export function patch(oldVnode, vnode, vm) {
   // 如果没有el，也没有oldVnode
   if (!oldVnode) {
     // 组件的创建过程是没有el属性的
@@ -23,6 +23,12 @@ export function patch(oldVnode, vnode) {
       return el;
     } else {
         // 如果是更新视图
+        const el = createElm(vnode);
+        const oldVnode = vm.$el // vm.$el在初次渲染时赋值的
+        const parentElm = oldVnode.parentNode;
+        parentElm.insertBefore(el, oldVnode.nextSibling);
+        parentElm.removeChild(oldVnode);
+        // TODO....diff算法
     }
   }
 }
