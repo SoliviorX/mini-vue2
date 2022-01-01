@@ -21,12 +21,12 @@ export default class Dep {
 
   // 依次执行subs里面的watcher更新方法
   notify() {
-    console.log('dep.subs------------', this.subs)
     this.subs.forEach((watcher) => watcher.update());
   }
 
   // 把watcher加入到dep实例的subs容器（因为一个dep可能对应多个watcher）
   addSub(watcher) {
+    console.log('dep.subs', this.subs)
     this.subs.push(watcher);
   }
 }

@@ -135,7 +135,9 @@
       } // inserted是个数组，需要调用observeArray来监测
 
 
-      if (inserted) ob.observeArray(inserted);
+      if (inserted) ob.observeArray(inserted); // 数组派发更新
+
+      ob.dep.notify();
       return result;
     };
   });
@@ -145,13 +147,13 @@
    * 2. 一个watcher中还可以存放多个dep（一个watcher可能对应多个属性，而dep与属性一一对应）
    * 3. dep具有唯一性
    */
-  var id = 0; // 给dep添加一个标识，保证它的唯一性
+  var id$1 = 0; // 给dep添加一个标识，保证它的唯一性
 
   var Dep = /*#__PURE__*/function () {
     function Dep() {
       _classCallCheck(this, Dep);
 
-      this.id = id++;
+      this.id = id$1++;
       this.subs = []; // 用来存放watcher
     } // 将dep实例放到watcher中
 
@@ -169,7 +171,6 @@
     }, {
       key: "notify",
       value: function notify() {
-        console.log('dep.subs------------', this.subs);
         this.subs.forEach(function (watcher) {
           return watcher.update();
         });
@@ -178,6 +179,7 @@
     }, {
       key: "addSub",
       value: function addSub(watcher) {
+        console.log('dep.subs', this.subs);
         this.subs.push(watcher);
       }
     }]);
@@ -208,8 +210,11 @@
     function Observer(data) {
       _classCallCheck(this, Observer);
 
+      this.value = data;
+      this.dep = new Dep(); // 给data添加一个dep，收集data整体的一个dep（主要用于数组的依赖收集）
       // 在数据data上新增属性 data.__ob__；指向经过new Observer(data)创建的实例，可以访问Observer.prototype上的方法observeArray、walk等
       // 所有被劫持过的数据都有__ob__属性（通过这个属性可以判断数据是否被检测过）
+
       Object.defineProperty(data, "__ob__", {
         // 值指代的就是Observer的实例，即监控的数据
         value: this,
@@ -260,17 +265,26 @@
   }();
 
   function defineReactive(data, key, value) {
-    observe(value); // 【关键】递归，劫持对象中所有层级的所有属性
+    var childOb = observe(value); // 【关键】递归，劫持对象中所有层级的所有属性
     // 如果Vue数据嵌套层级过深 >> 性能会受影响【******************************】
 
     var dep = new Dep(); // 为每个属性创建一个独一无二的dep
 
     Object.defineProperty(data, key, {
       get: function get() {
-        // todo...收集依赖
         if (Dep.target) {
-          console.log('开始收集依赖');
-          dep.depend();
+          dep.depend(); // 如果属性的值依然是一个数组/对象，则对该 数组/对象 整体进行依赖收集
+
+          if (childOb) {
+            childOb.dep.depend(); // 让对象和数组也记录watcher
+            // 如果数据结构类似 {a:[1,2,[3,4,[5,6]]]} 这种数组多层嵌套，数组包含数组的情况，那么我们访问a的时候，只是对第一层的数组进行了依赖收集
+            // 里面的数组因为没访问到，所以无法收集依赖，但是如果我们改变了a里面的第二层数组的值，是需要更新页面的，所以需要对数组递归进行依赖收集
+
+            if (Array.isArray(value)) {
+              // 如果内部还是数组
+              dependArray(value); // 遍历 + 递归数组，对数组不同层级的所有数组元素 进行依赖收集
+            }
+          }
         }
 
         return value;
@@ -280,10 +294,24 @@
 
         observe(newVal);
         value = newVal;
-        console.log('数据更新，通知watchers更新');
+        console.log('-------------------数据更新，通知watchers更新-------------------');
         dep.notify(); // 通知dep存放的watcher去更新--派发更新
       }
     });
+  } // 递归收集数组依赖
+
+
+  function dependArray(value) {
+    for (var e, i = 0, l = value.length; i < l; i++) {
+      e = value[i]; // 对每一项进行依赖收集
+
+      e && e.__ob__ && e.__ob__.dep.depend();
+
+      if (Array.isArray(e)) {
+        // 【递归】如果数组里面还有数组，就递归去收集依赖
+        dependArray(e);
+      }
+    }
   }
 
   function observe(data) {
@@ -294,7 +322,7 @@
 
 
     if (data.__ob__) {
-      return;
+      return data.__ob__;
     } // 返回经过响应式处理之后的data
 
 
@@ -735,6 +763,80 @@
     }
   }
 
+  var callbacks = [];
+
+  function flushCallbacks() {
+    callbacks.forEach(function (cb) {
+      return cb();
+    });
+    waiting = false;
+  }
+
+  var waiting = false;
+  /**
+   * 流程：
+   * 1. watcher更新流程：
+   *       ——> watcher.update()
+   *       ——> queueWatcher(watcher)
+   *       ——> 对watcher去重，并将watcher放到一个数组中；最后执行 nextTick(flushSchedulerQueue)（flushSchedulerQueue的作用是遍历watcher数组，调用watcher.run()）
+   *       ——> 将 flushSchedulerQueue 放入一个 回调函数数组callbacks 中；定义一个微任务：flushCallbacks(callbacks)；
+   * 2. vm.$nextTick(cb)：
+   *       ——> 直接会执行Vue原型上的$nextTick()方法，即nextTick(cb)方法
+   *       ——> 将cb 放入 上述的回调函数数组 callbacks 中，紧接着上述的flushSchedulerQueue，在微任务中一并执行
+   *       ——> 由于在flushSchedulerQueue中会执行 watcher.run() 创建真实DOM，所以可以在$nextTick()回调中获取到最新DOM节点
+   * 
+   * 总结：
+   * 1. callbacks 中包含 flushSchedulerQueue，以及$nextTick()的回调
+   * 2. dep.subs中每个watcher执行update时，最后都会执行nextick，
+   * 3. 执行nextick是否会创建微任务，取决于上一个微任务是否完成
+   * 4. 执行微任务在UI渲染完成之前，为何能拿到页面dom？：：：$nextTick()回调中获取的时内存中的DOM，不关心UI有没有渲染完成
+   */
+
+  function nextTick(cb) {
+    callbacks.push(cb);
+
+    if (!waiting) {
+      // 异步执行callBacks
+      Promise.resolve().then(flushCallbacks);
+      waiting = true;
+    }
+  }
+
+  var queue = [];
+  var has = {}; // 维护存放了哪些watcher
+
+  /**
+   * queueWatcher逻辑：
+   * 1. 对watcher去重（有相同watcher的情况下，不重复push）
+   * 2. 防抖：一段时间内只执行一次的更新（遍历所有watcher，执行watcher.run()）
+   */
+
+  function queueWatcher(watcher) {
+    var id = watcher.id; // watcher去重，即相同watcher只push一次
+
+    if (!has[id]) {
+      //  同步代码执行 把全部的watcher都放到队列里面去
+      queue.push(watcher);
+      has[id] = true; // 开启一次异步更新操作，批处理（防抖）
+      // 进行异步调用
+
+      nextTick(flushSchedulerQueue);
+    }
+  }
+
+  function flushSchedulerQueue() {
+    for (var index = 0; index < queue.length; index++) {
+      // 调用watcher的run方法，执行真正的更新操作
+      queue[index].run();
+    } // 执行完之后清空队列
+
+
+    queue = [];
+    has = {};
+  }
+
+  var id = 0;
+
   var Watcher = /*#__PURE__*/function () {
     function Watcher(vm, exprOrFn, cb, options) {
       _classCallCheck(this, Watcher);
@@ -743,6 +845,8 @@
       this.exprOrFn = exprOrFn;
       this.cb = cb;
       this.options = options;
+      this.id = id++; // watcher的唯一标识
+
       this.deps = []; //存放dep的容器
 
       this.depsId = new Set(); //用来去重dep
@@ -783,17 +887,25 @@
           this.depsId.add(id); // 将dep放到watcher中的deps数组中
 
           this.deps.push(dep);
-          console.log('watcher.deps------------', this.deps); // 直接调用dep的addSub方法  把自己watcher实例添加到dep的subs容器里面
+          console.log("watcher.deps", this.deps); // 直接调用dep的addSub方法  把自己watcher实例添加到dep的subs容器里面
 
           dep.addSub(this);
         }
       } // 更新当前watcher相关的视图
+      // Vue中的更新是异步的
 
     }, {
       key: "update",
       value: function update() {
-        console.log('watcher.update：更新视图');
-        this.get(); // toDO... 如果短时间内同一watcher执行了多次update，我们希望先将watcher缓存下来，等一会儿一起更新
+        // 每次watcher进行更新的时候，可以让他们先缓存起来，之后再一起调用
+        // 异步队列机制
+        queueWatcher(this);
+      }
+    }, {
+      key: "run",
+      value: function run() {
+        // TODO 其他功能扩展
+        this.getter.call(this.vm);
       }
     }]);
 
@@ -966,10 +1078,6 @@
 
   function createTextNode(vm, text) {
     return new Vnode(undefined, undefined, undefined, undefined, text);
-  }
-
-  function nextTick() {
-    console.log('nextTick');
   }
 
   function renderMixin(Vue) {

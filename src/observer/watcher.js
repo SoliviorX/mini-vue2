@@ -1,11 +1,15 @@
 import { pushTarget, popTarget } from "./dep";
+import { queueWatcher } from "./scheduler";
 
+// 全局变量id  每次new Watcher都会自增
+let id = 0;
 export default class Watcher {
   constructor(vm, exprOrFn, cb, options) {
     this.vm = vm;
     this.exprOrFn = exprOrFn;
     this.cb = cb;
     this.options = options;
+    this.id = id++; // watcher的唯一标识
 
     this.deps = []; //存放dep的容器
     this.depsId = new Set(); //用来去重dep
@@ -42,16 +46,22 @@ export default class Watcher {
       this.depsId.add(id);
       // 将dep放到watcher中的deps数组中
       this.deps.push(dep);
-      console.log('watcher.deps------------', this.deps)
+      console.log("watcher.deps", this.deps);
       // 直接调用dep的addSub方法  把自己watcher实例添加到dep的subs容器里面
       dep.addSub(this);
     }
   }
 
   // 更新当前watcher相关的视图
+  // Vue中的更新是异步的
   update() {
-    console.log('watcher.update：更新视图')
-    this.get()
-    // toDO... 如果短时间内同一watcher执行了多次update，我们希望先将watcher缓存下来，等一会儿一起更新
+    // 每次watcher进行更新的时候，可以让他们先缓存起来，之后再一起调用
+    // 异步队列机制
+    queueWatcher(this);
+  }
+
+  run() {
+    // TODO 其他功能扩展
+    this.getter.call(this.vm)
   }
 }
