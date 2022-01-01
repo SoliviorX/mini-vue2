@@ -18,10 +18,10 @@
                         a: 1
                     },
                     arr1: [1,2,{a:1,b:2}],
-                    number1: 3
+                    number1: 2
                 }
             },
-            template: `<div class="home" id="main" style="font-size:12px;color:red">这是我自己写的vue<span>计算属性：{{number1}}</span>{{arr1}}</div>`,
+            template: `<div class="home" id="main" style="font-size:12px;color:red">这是我自己写的vue{{number1}}</div>`,
             // template会编译成render函数，也可以直接写render函数
             // render(h) {
             //     return h('div', {id: 'a'}, 'hello')
@@ -34,7 +34,7 @@
         })
         // 2s后修改vue实例中的data，触发重新渲染
         setTimeout(() => {
-            vm._data.obj1.a = {b:5}
+            vm.number1 = 3
         }, 2000)
         // console.log(vm)
     </script>

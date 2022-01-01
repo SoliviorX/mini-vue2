@@ -1,5 +1,6 @@
 import { isObject } from "../utils";
 import { arrayMethods } from "./array";
+import Dep from "./dep";
 
 /**
  * 数据劫持：
@@ -58,16 +59,24 @@ function defineReactive(data, key, value) {
   observe(value); // 【关键】递归，劫持对象中所有层级的所有属性
   // 如果Vue数据嵌套层级过深 >> 性能会受影响【******************************】
 
+  let dep = new Dep() // 为每个属性创建一个独一无二的dep
   Object.defineProperty(data, key, {
     get() {
       // todo...收集依赖
+      if(Dep.target) {
+        console.log('开始收集依赖')
+        dep.depend()
+      }
       return value;
     },
     set(newVal) {
+      if (newVal === value) return;
       // 对新数据进行观察
       observe(newVal);
       value = newVal;
-      // todo...更新视图
+
+      console.log('数据更新，通知watchers更新')
+      dep.notify(); // 通知dep存放的watcher去更新--派发更新
     },
   });
 }

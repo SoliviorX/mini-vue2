@@ -141,6 +141,63 @@
   });
 
   /**
+   * 1. 每个属性我都给他分配一个dep（一对一的关系），一个dep可以存放多个watcher（一个属性可能对应多个watcher）
+   * 2. 一个watcher中还可以存放多个dep（一个watcher可能对应多个属性，而dep与属性一一对应）
+   * 3. dep具有唯一性
+   */
+  var id = 0; // 给dep添加一个标识，保证它的唯一性
+
+  var Dep = /*#__PURE__*/function () {
+    function Dep() {
+      _classCallCheck(this, Dep);
+
+      this.id = id++;
+      this.subs = []; // 用来存放watcher
+    } // 将dep实例放到watcher中
+
+
+    _createClass(Dep, [{
+      key: "depend",
+      value: function depend() {
+        // 如果当前存在watcher
+        if (Dep.target) {
+          // Dep.target即当前watcher，是在new Watcher时设置的
+          Dep.target.addDep(this); // this为dep实例（与属性一一对应），即把自身dep实例存放在watcher里面
+        }
+      } // 依次执行subs里面的watcher更新方法
+
+    }, {
+      key: "notify",
+      value: function notify() {
+        console.log('dep.subs------------', this.subs);
+        this.subs.forEach(function (watcher) {
+          return watcher.update();
+        });
+      } // 把watcher加入到dep实例的subs容器（因为一个dep可能对应多个watcher）
+
+    }, {
+      key: "addSub",
+      value: function addSub(watcher) {
+        this.subs.push(watcher);
+      }
+    }]);
+
+    return Dep;
+  }();
+  var targetStack = []; // Dep.target 为 dep 当前所对应的watcher（即栈顶的watcher），默认为null
+
+  Dep.target = null;
+  function pushTarget(watcher) {
+    targetStack.push(watcher);
+    Dep.target = watcher; // Dep.target指向当前watcher
+  }
+  function popTarget() {
+    targetStack.pop(); // 当前watcher出栈 拿到上一个watcher
+
+    Dep.target = targetStack[targetStack.length - 1];
+  }
+
+  /**
    * 数据劫持：
    * 1. 如果是对象，则递归对象所有属性，进行劫持
    * 2. 如果数组，则会劫持数组方法（方法中如果是新增元素，会劫持新增元素），并对数组中类型为数组/对象的元素进行劫持
@@ -154,7 +211,7 @@
       // 在数据data上新增属性 data.__ob__；指向经过new Observer(data)创建的实例，可以访问Observer.prototype上的方法observeArray、walk等
       // 所有被劫持过的数据都有__ob__属性（通过这个属性可以判断数据是否被检测过）
       Object.defineProperty(data, "__ob__", {
-        //  值指代的就是Observer的实例
+        // 值指代的就是Observer的实例，即监控的数据
         value: this,
         //  设为不可枚举，防止在forEach对每一项响应式的时候监控__ob__，造成死循环
         enumerable: false,
@@ -206,15 +263,25 @@
     observe(value); // 【关键】递归，劫持对象中所有层级的所有属性
     // 如果Vue数据嵌套层级过深 >> 性能会受影响【******************************】
 
+    var dep = new Dep(); // 为每个属性创建一个独一无二的dep
+
     Object.defineProperty(data, key, {
       get: function get() {
         // todo...收集依赖
+        if (Dep.target) {
+          console.log('开始收集依赖');
+          dep.depend();
+        }
+
         return value;
       },
       set: function set(newVal) {
-        // 对新数据进行观察
+        if (newVal === value) return; // 对新数据进行观察
+
         observe(newVal);
-        value = newVal; // todo...更新视图
+        value = newVal;
+        console.log('数据更新，通知watchers更新');
+        dep.notify(); // 通知dep存放的watcher去更新--派发更新
       }
     });
   }
@@ -542,7 +609,8 @@
     }
 
     return "{".concat(str.slice(0, -1), "}");
-  }
+  } // 将ast转化成render函数
+
 
   function generate(ast) {
     var children = getChildren(ast);
@@ -570,7 +638,7 @@
     return renderFn;
   }
 
-  function patch(oldVnode, vnode) {
+  function patch(oldVnode, vnode, vm) {
     // 如果没有el，也没有oldVnode
     if (!oldVnode) {
       // 组件的创建过程是没有el属性的
@@ -590,6 +658,18 @@
 
         parentElm.removeChild(oldVnode);
         return el;
+      } else {
+        // 如果是更新视图
+        var _el = createElm(vnode);
+
+        var _oldVnode = vm.$el; // vm.$el在初次渲染时赋值的
+
+        var _parentElm = _oldVnode.parentNode;
+
+        _parentElm.insertBefore(_el, _oldVnode.nextSibling);
+
+        _parentElm.removeChild(_oldVnode); // TODO....diff算法
+
       }
     }
   } // 虚拟dom转成真实dom
@@ -655,6 +735,71 @@
     }
   }
 
+  var Watcher = /*#__PURE__*/function () {
+    function Watcher(vm, exprOrFn, cb, options) {
+      _classCallCheck(this, Watcher);
+
+      this.vm = vm;
+      this.exprOrFn = exprOrFn;
+      this.cb = cb;
+      this.options = options;
+      this.deps = []; //存放dep的容器
+
+      this.depsId = new Set(); //用来去重dep
+
+      this.getter = exprOrFn;
+      this.get();
+    } // new Watcher时会执行get方法；之后数据更新时，直接手动调用get方法即可
+
+
+    _createClass(Watcher, [{
+      key: "get",
+      value: function get() {
+        // 把当前watcher放到全局栈，并设置Dep.target（无法继承，具唯一性）为当前watcher
+        pushTarget(this);
+        /**
+         * 执行exprOrFn，如果watcher是渲染watcher，则exprOrFn为vm._update(vm._render())
+         * 在执行render函数的时候，获取变量会触发属性的getter（定义在对象数据劫持中），在getter中进行依赖收集
+         */
+
+        var res = this.getter.call(this.vm); // 执行完getter就把当前watcher删掉，以防止用户在methods/生命周期中访问data属性时进行依赖收集（数据劫持时会判断Dep.target是否存在）
+
+        popTarget(); // 在调用方法之后把当前watcher实例从全局watcher栈中移除，设置Dep.target为新的栈顶watcher
+
+        return res;
+      }
+      /**
+       * 1. 保证dep唯一，因为在render过程中，同一属性可能被多次调用，只需收集一次依赖即可；另外初始渲染收集过的dep，在更新时也不用再次收集（通过dep的id来判断）
+       * 2. 将dep放到watcher中的deps数组中
+       * 3. 在dep实例中添加watcher
+       */
+
+    }, {
+      key: "addDep",
+      value: function addDep(dep) {
+        var id = dep.id;
+
+        if (!this.depsId.has(id)) {
+          this.depsId.add(id); // 将dep放到watcher中的deps数组中
+
+          this.deps.push(dep);
+          console.log('watcher.deps------------', this.deps); // 直接调用dep的addSub方法  把自己watcher实例添加到dep的subs容器里面
+
+          dep.addSub(this);
+        }
+      } // 更新当前watcher相关的视图
+
+    }, {
+      key: "update",
+      value: function update() {
+        console.log('watcher.update：更新视图');
+        this.get(); // toDO... 如果短时间内同一watcher执行了多次update，我们希望先将watcher缓存下来，等一会儿一起更新
+      }
+    }]);
+
+    return Watcher;
+  }();
+
   function lifecycleMixin(Vue) {
     // _update：初始挂载及后续更新
     // 更新的时候，不会重新进行模板编译，因为更新只是数据发生变化，render函数没有改变。
@@ -670,7 +815,7 @@
         vm.$el = patch(vm.$el, vnode); // 初次渲染 vm._vnode肯定不存在 要通过虚拟节点 渲染出真实的dom 赋值给$el属性
       } else {
         // 视图更新
-        vm.$el = patch(prevVnode, vnode); // 更新时把上次的vnode和这次更新的vnode穿进去 进行diff算法
+        vm.$el = patch(prevVnode, vnode, vm); // 更新时把上次的vnode和这次更新的vnode穿进去 进行diff算法
       }
     };
   }
@@ -686,17 +831,13 @@
 
     var updateComponent = function updateComponent() {
       vm._update(vm._render());
-    };
+    }; // 每个组件渲染的时候，都会创建一个watcher，并执行updateComponent；true表示是渲染Watcher
 
-    updateComponent(); //   new Watcher(
-    //     vm,
-    //     updateComponent,
-    //     () => {
-    //       callHook(vm, "beforeUpdate");
-    //     },
-    //     true
-    //   );
 
+    new Watcher(vm, updateComponent, function () {
+      console.log('视图更新了');
+      callHook(vm, "beforeUpdate");
+    }, true);
     callHook(vm, "mounted");
   }
   function callHook(vm, hook) {
