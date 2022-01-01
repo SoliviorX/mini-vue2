@@ -23,7 +23,7 @@
                     number1: 2
                 }
             },
-            template: `<div class="home" id="main" style="font-size:12px;color:red">这是我自己写的vue{{obj1}}</div>`,
+            template: `<div class="home" id="main" style="font-size:12px;color:red">这是我自己写的vue{{number1}}</div>`,
             // template会编译成render函数，也可以直接写render函数
             // render(h) {
             //     return h('div', {id: 'a'}, 'hello')
@@ -32,12 +32,17 @@
                 computedName() {
                     return this.number1 + 3
                 }
+            },
+            watch: {
+                number1(newVal, oldVal) {
+                    console.log(newVal, oldVal)
+                }
             }
         })
         // 1s后修改vue实例中的data，触发重新渲染
         setTimeout(() => {
             // vm.arr1[2].push(89)
-            vm.obj1.a.a = 100
+            vm.number1 = 100
         }, 1000)
         // console.log(vm)
     </script>
