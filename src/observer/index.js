@@ -65,9 +65,9 @@ function defineReactive(data, key, value) {
   let dep = new Dep() // 为每个属性创建一个独一无二的dep
   Object.defineProperty(data, key, {
     get() {
+      console.log(dep,key)
       if(Dep.target) {
         dep.depend()
-        
         // 如果属性的值依然是一个数组/对象，则对该 数组/对象 整体进行依赖收集
         if(childOb) {
           childOb.dep.depend(); // 让对象和数组也记录watcher

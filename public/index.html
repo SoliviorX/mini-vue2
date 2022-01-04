@@ -20,31 +20,34 @@
                         }
                     },
                     arr1: [1,2,[4,5]],
-                    number1: 2
+                    number1: 2,
+                    firstName: 'shi',
+                    lastName: 'deshan'
                 }
             },
-            template: `<div class="home" id="main" style="font-size:12px;color:red">这是我自己写的vue{{number1}}</div>`,
-            // template会编译成render函数，也可以直接写render函数
-            // render(h) {
-            //     return h('div', {id: 'a'}, 'hello')
-            // },
+            template: `<div class="home" id="main" style="font-size:12px;color:red">这是我自己写的vue{{fullName}}</div>`,
+
+            // 计算属性默认不执行 ——> 执行的是Object.defineProperty ——> getter
+            // 多次取值如果依赖的值不变，就不会重新执行
+            // 依赖的值变化了，需要重新执行
+            // dirty 表示这个值是不是脏的，默认为true（取值后变为false）；依赖的值变化了，则dirty=true
             computed: {
-                computedName() {
-                    return this.number1 + 3
+                fullName() {
+                    console.log('走computed')
+                    return this.firstName + this.lastName
                 }
             },
-            watch: {
-                number1(newVal, oldVal) {
-                    console.log(newVal, oldVal)
-                }
-            }
+            // watch: {
+            //     number1(newVal, oldVal) {
+            //         console.log(newVal, oldVal)
+            //     }
+            // }
         })
         // 1s后修改vue实例中的data，触发重新渲染
         setTimeout(() => {
             // vm.arr1[2].push(89)
-            vm.number1 = 100
+            vm.firstName = 'zou'
         }, 1000)
-        // console.log(vm)
     </script>
 </body>
 </html>

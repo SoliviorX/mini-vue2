@@ -26,7 +26,6 @@ export default class Dep {
 
   // 把watcher加入到dep实例的subs容器（因为一个dep可能对应多个watcher）
   addSub(watcher) {
-    console.log('dep.subs', this.subs)
     this.subs.push(watcher);
   }
 }
@@ -46,6 +45,7 @@ export function pushTarget(watcher) {
 }
 
 export function popTarget() {
+  // targetStack可能同时存在多个watcher（比如渲染watcher处于栈底，上面有computed watcher）
   targetStack.pop(); // 当前watcher出栈 拿到上一个watcher
   Dep.target = targetStack[targetStack.length - 1];
 }
