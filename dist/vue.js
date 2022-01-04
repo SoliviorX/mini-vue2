@@ -220,7 +220,6 @@
     }, {
       key: "addSub",
       value: function addSub(watcher) {
-        console.log('dep.subs', this.subs);
         this.subs.push(watcher);
       }
     }]);
@@ -235,6 +234,7 @@
     Dep.target = watcher; // Dep.target指向当前watcher
   }
   function popTarget() {
+    // targetStack可能同时存在多个watcher（比如渲染watcher处于栈底，上面有computed watcher）
     targetStack.pop(); // 当前watcher出栈 拿到上一个watcher
 
     Dep.target = targetStack[targetStack.length - 1];
@@ -313,6 +313,8 @@
 
     Object.defineProperty(data, key, {
       get: function get() {
+        console.log(dep, key);
+
         if (Dep.target) {
           dep.depend(); // 如果属性的值依然是一个数组/对象，则对该 数组/对象 整体进行依赖收集
 
@@ -469,6 +471,10 @@
       this.options = options;
       this.user = !!options.user; // 表示是不是用户watcher
 
+      this.lazy = !!options.lazy; // 表示是不是computed watcher
+
+      this.dirty = this.lazy; // dirty可变，默认为true；表示计算watcher是否需要重新计算-执行用户定义的方法。
+
       this.id = id++; // watcher的唯一标识
 
       this.deps = []; //存放dep的容器
@@ -496,9 +502,10 @@
 
           return obj; // 执行getter()，返回obj，会触发依赖收集，将用户watcher收集到监听的数据上
         };
-      }
+      } // 如果是计算属性watcher，则创建watcher的时候，什么都不执行（后续用到计算属性的时候再执行）
 
-      this.value = this.get();
+
+      this.value = this.lazy ? undefined : this.get();
     } // new Watcher时会执行get方法；之后数据更新时，直接手动调用get方法即可
 
 
@@ -533,8 +540,7 @@
         if (!this.depsId.has(id)) {
           this.depsId.add(id); // 将dep放到watcher中的deps数组中
 
-          this.deps.push(dep);
-          console.log("watcher.deps", this.deps); // 直接调用dep的addSub方法  把自己watcher实例添加到dep的subs容器里面
+          this.deps.push(dep); // 直接调用dep的addSub方法  把自己watcher实例添加到dep的subs容器里面
 
           dep.addSub(this);
         }
@@ -544,9 +550,35 @@
     }, {
       key: "update",
       value: function update() {
-        // 每次watcher进行更新的时候，可以让他们先缓存起来，之后再一起调用
-        // 异步队列机制
-        queueWatcher(this);
+        // 计算属性的值发生变化，也会执行到update；
+        // 这里做个判断，如果是计算属性watcher，则将dirty设置成true，下次访问计算属性时就会重新计算。
+        if (this.lazy) {
+          this.dirty = true;
+          /**
+           * 计算属性的依赖不仅需要收集计算属性watcher，还应该收集渲染watcher，这样当依赖项改变的时候，页面才会重新渲染
+           */
+        } else {
+          // 每次watcher进行更新的时候，可以让他们先缓存起来，之后再一起调用
+          // 异步队列机制
+          queueWatcher(this);
+        }
+      } // computed计算属性求值
+
+    }, {
+      key: "evaluate",
+      value: function evaluate() {
+        this.value = this.get();
+        this.dirty = false;
+      }
+    }, {
+      key: "depend",
+      value: function depend() {
+        // 计算属性的watcher存储了依赖项的dep
+        var i = this.deps.length;
+
+        while (i--) {
+          this.deps[i].depend(); // 调用依赖项的dep去收集渲染watcher
+        }
       }
     }, {
       key: "run",
@@ -583,15 +615,19 @@
 
     if (opts.data) {
       initData(vm);
-    }
+    } // 初始化computed
 
-    if (opts.computed) ; // 初始化watch
+
+    if (opts.computed) {
+      initComputed(vm);
+    } // 初始化watch
 
 
     if (opts.watch) {
       initWatch(vm);
     }
   }
+
 
   function initData(vm) {
     var data = vm.$options.data; // 往实例上添加一个属性 _data，即传入的data
@@ -605,7 +641,80 @@
 
 
     observe(data);
+  } // 初始化computed
+
+
+  function initComputed(vm) {
+    var computed = vm.$options.computed;
+    var watchers = vm._computedWatchers = {}; // 用watchers和vm._computedWatchers 用来存放计算watcher
+
+    for (var k in computed) {
+      var userDef = computed[k]; // 获取用户定义的计算属性；可能是函数。也可能是对象（内部有get、set函数）
+      // 获取computed的getter
+
+      var getter = typeof userDef === "function" ? userDef : userDef.get; // 每个计算属性本质就是watcher
+      // 有多少个getter，就创建多少个watcher
+      // 创建计算watcher，lazy设置为true
+
+      watchers[k] = new Watcher(vm, getter, function () {}, {
+        lazy: true
+      }); // 将computed中的属性直接代理到vm下
+
+      defineComputed(vm, k, userDef);
+    }
   }
+  /**
+   * 1. 将computed中的属性直接代理到vm上
+   * 2. 将代理的get进行包裹（即进行缓存处理，不用每次获取computed都进行重新计算）
+   */
+
+
+  var sharedPropertyDefinition = {
+    enumerable: true,
+    configurable: true,
+    get: function get() {},
+    set: function set() {}
+  };
+
+  function defineComputed(vm, key, userDef) {
+    if (typeof userDef === "function") {
+      sharedPropertyDefinition.get = createComputedGetter(key);
+    } else {
+      sharedPropertyDefinition.get = createComputedGetter(key);
+      sharedPropertyDefinition.set = userDef.set;
+    }
+
+    Object.defineProperty(vm, key, sharedPropertyDefinition);
+  } // 取计算属性的值，走这个函数
+
+
+  function createComputedGetter(key) {
+    return function () {
+      var watcher = this._computedWatchers[key];
+
+      if (watcher) {
+        // 根据dirty属性，判断是否需要重新计算（脏就是要调用getter，不脏就是直接取watcher.value）
+        if (watcher.dirty) {
+          watcher.evaluate(); // 计算属性取值的时候，如果是脏的，需要重新求值；依赖的参数会收集计算属性watcher；
+
+          /**
+           * 计算属性的依赖不仅需要收集计算属性watcher，还应该收集渲染watcher，这样当依赖项改变的时候，页面才会重新渲染；
+           * 在执行mountComponent时，会先设置Dep.target等于渲染watcher，然后将它push到targetStack中
+           * 当解析到计算属性时，将Dep.target设置成计算属性watcher，pushTarget()，依赖项收集当前计算属性watcher，然后popTarget()，然后依赖项收集当前渲染watcher
+           * 对所有计算属性循环此操作
+           * 将渲染watcher  popTarget()
+           */
+          // 如果Dep还存在target，这个时候一般为渲染watcher，计算属性依赖的数据需要继续收集渲染watcher
+
+          if (Dep.target) {
+            watcher.depend();
+          }
+        }
+
+        return watcher.value;
+      }
+    };
+  } // 初始化watch
 
 
   function initWatch(vm) {
