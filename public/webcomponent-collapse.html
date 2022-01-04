@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>collapse</title>
+</head>
+<body>
+    <!-- 直接打开html文件，会报错不支持file引入 -->
+    <!-- 安装live server插件，用插件打开html文件 -->
+    <!-- live server是一个实时小型服务器 -->
+    <zy-collapse>
+        <zy-collapse-item title='Node' name='1'>
+            <div>nodejs welcome</div>
+        </zy-collapse-item>
+        <zy-collapse-item title='react' name='2'>
+            <div>react welcome</div>
+        </zy-collapse-item>
+        <zy-collapse-item title='vue' name='3'>
+            <div>vue welcome</div>
+        </zy-collapse-item>
+    </zy-collapse>
+
+    <!-- template 没有实际意义，不会渲染 -->
+    <template id="collapse_tmpl">
+        <div class="zy-collapse">
+            <slot></slot>
+        </div>
+    </template>
+
+    <template id="collapse_item_tmpl">
+        <div class="zy-collapse-item">
+            <div class="title"></div>
+            <div class="content">
+                <slot></slot>
+            </div>
+        </div>
+    </template>
+    <!-- vite实现原理就依赖于 type='module' -->
+    <script src='./webcomponent/index.js' type="module"></script>
+</body>
+</html>
