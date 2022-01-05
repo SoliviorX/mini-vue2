@@ -1,61 +1,50 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vue2</title>
-</head>
-<body>
-    <div id='root'></div>
+  </head>
+  <body>
+    <div id="root"></div>
     <script src="../dist/vue.js"></script>
     <script>
-        Vue.mixin({
-            beforeCreate() {
-                console.log('beforeCreated1')
-            }
-        })
-        Vue.mixin({
-            beforeCreate() {
-                console.log('beforeCreated2')
-            }
-        })
-        let vm = new Vue({
-            el: '#root',
-            data() {
-                return {
-                    obj1: {
-                        a: {
-                            a: 4
-                        }
-                    },
-                    arr1: [1,2,[4,5]],
-                    number1: 2,
-                    firstName: 'shi',
-                    lastName: 'deshan'
-                }
+      // 全局组件
+      Vue.component("parent-component", {
+        template: `<div>我是全局组件</div>`,
+      });
+      let vm = new Vue({
+        el: "#root",
+        data() {
+          return {
+            obj1: {
+              a: {
+                a: 4,
+              },
             },
-            template: `<div class="home" id="main" style="font-size:12px;color:red">这是我自己写的vue{{number1}}</div>`,
-            beforeCreate() {
-                console.log('beforeCreated3')
-            },
-            computed: {
-                fullName() {
-                    console.log('走computed')
-                    return this.firstName + this.lastName
-                }
-            },
-            // watch: {
-            //     number1(newVal, oldVal) {
-            //         console.log(newVal, oldVal)
-            //     }
-            // }
-        })
-        // 1s后修改vue实例中的data，触发重新渲染
-        setTimeout(() => {
-            // vm.arr1[2].push(89)
-            vm.firstName = 'zou'
-        }, 1000)
+            arr1: [1, 2, [4, 5]],
+            number1: 2,
+            firstName: "shi",
+            lastName: "deshan",
+          };
+        },
+        template: `<div>hello 这是我自己写的Vue{{number1}}<parent-component></parent-component><child-component></child-component></div>`,
+        // 局部组件
+        components: {
+          "child-component": {
+            template: `<div>我是局部组件</div>`,
+          },
+        },
+      });
     </script>
-</body>
+  </body>
 </html>
+
+<!-- 
+  1. 给根组件创建一个构造函数，基于 new Vue
+  2. 开始解析根组件，生成VNode；过程中对于自定义的子组件特殊处理：data.hook{init(vnode)}
+  3. 生成DOM元素；如果当前虚拟节点是组件的话
+    3.1 调用createComponent(vnode) —— 执行data.hook.init(vnode) —— 实例化components[key]，执行 child.$mount() 生成真实dom，赋值到虚拟节点的vm.$el
+    3.2 将组件的 $el 插入到父容器（父组件）中
+ -->

@@ -1,5 +1,5 @@
 export function patch(oldVnode, vnode, vm) {
-  // 如果没有el，也没有oldVnode
+  // 如果没有vm.$el，也没有oldVnode，即第一次渲染组件元素
   if (!oldVnode) {
     // 组件的创建过程是没有el属性的
     return createElm(vnode);
@@ -36,23 +36,41 @@ export function patch(oldVnode, vnode, vm) {
 // 虚拟dom转成真实dom
 function createElm(vnode) {
   const { tag, data, key, children, text } = vnode;
-
-  // 判断虚拟dom 是元素节点还是文本节点（文本节点tag为undefined）
+  // 判断虚拟dom 是元素节点、自定义组件 还是文本节点（文本节点tag为undefined）
   if (typeof tag === "string") {
+    // 如果是组件，返回组件渲染的真实dom
+    if (createComponent(vnode)) {
+      return vnode.componentInstance.$el;
+    }
+
+    // 否则是元素
     // 虚拟dom的el属性指向真实dom，方便后续更新diff算法操作
     vnode.el = document.createElement(tag);
-
     // 解析vnode属性
     updateProperties(vnode);
-
     // 如果有子节点就递归插入到父节点里面
     children.forEach((child) => {
       return vnode.el.appendChild(createElm(child));
     });
   } else {
+    // 否则是文本节点
     vnode.el = document.createTextNode(text);
   }
   return vnode.el;
+}
+
+// 创建组件的真实dom
+function createComponent(vnode) {
+  // 初始化组件，创建组件实例
+  let i = vnode.data;
+  // 相当于执行 vnode.data.hook.init(vnode)
+  if ((i = i.hook) && (i = i.init)) {
+    i(vnode);
+  }
+  // 如果组件实例化完毕，有componentInstance属性，那证明是组件
+  if (vnode.componentInstance) {
+    return true;
+  }
 }
 
 // 解析vnode的data属性，映射到真实dom上
