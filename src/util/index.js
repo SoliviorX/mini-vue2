@@ -1,3 +1,5 @@
+import { ASSETS_TYPE } from "../global-api/const";
+
 export const LIFECYCLE_HOOKS = [
   "beforeCreate",
   "created",
@@ -23,10 +25,25 @@ function mergeHook(parentVal, childVal) {
     return parentVal;
   }
 }
-
 LIFECYCLE_HOOKS.forEach((hook) => {
   strats[hook] = mergeHook;
 })
+
+// components、directives、filters的合并策略
+function mergeAssets(parentVal, childVal) {
+  // 比如有【同名】的全局组件和自己定义的局部组件，那么parentVal代表全局组件，自己定义的组件是childVal
+  // 首先会查找自已局部组件有就用自己的，没有就从原型继承全局组件，res.__proto__===parentVal
+  const res = Object.create(parentVal); 
+  if (childVal) {
+    for (let k in childVal) {
+      res[k] = childVal[k];
+    }
+  }
+  return res;
+}
+ASSETS_TYPE.forEach((type) => {
+  strats[type + "s"] = mergeAssets;
+});
 
 export function mergeOptions(parent, child) {
   const options = {}; // 合并后的结果
@@ -58,8 +75,10 @@ export function mergeOptions(parent, child) {
       if(isObject(parentVal) && isObject(childVal)) {
         options[key] = {...parentVal, ...childVal}
       } else {
-        // 如果有一方为基本数据类型/函数，则以childVal为准
-        options[key] = childVal
+        // 如果有一方为基本数据类型/函数
+        // 儿子有则以儿子为准；
+        // 儿子没有，父亲有，则取父亲的属性
+        options[key] = childVal || parentVal
       }
     }
   }

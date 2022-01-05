@@ -139,6 +139,8 @@
     throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
   }
 
+  var ASSETS_TYPE = ["component", "directive", "filter"];
+
   var LIFECYCLE_HOOKS = ["beforeCreate", "created", "beforeMount", "mounted", "beforeUpdate", "updated", "beforeDestroy", "destroyed"];
   var strats = {}; // 存放各种策略
   // 生命周期的合并策略
@@ -158,6 +160,24 @@
 
   LIFECYCLE_HOOKS.forEach(function (hook) {
     strats[hook] = mergeHook;
+  }); // components、directives、filters的合并策略
+
+  function mergeAssets(parentVal, childVal) {
+    // 比如有【同名】的全局组件和自己定义的局部组件，那么parentVal代表全局组件，自己定义的组件是childVal
+    // 首先会查找自已局部组件有就用自己的，没有就从原型继承全局组件，res.__proto__===parentVal
+    var res = Object.create(parentVal);
+
+    if (childVal) {
+      for (var k in childVal) {
+        res[k] = childVal[k];
+      }
+    }
+
+    return res;
+  }
+
+  ASSETS_TYPE.forEach(function (type) {
+    strats[type + "s"] = mergeAssets;
   });
   function mergeOptions(parent, child) {
     var options = {}; // 合并后的结果
@@ -192,8 +212,10 @@
         if (isObject(parentVal) && isObject(childVal)) {
           options[key] = _objectSpread2(_objectSpread2({}, parentVal), childVal);
         } else {
-          // 如果有一方为基本数据类型/函数，则以childVal为准
-          options[key] = childVal;
+          // 如果有一方为基本数据类型/函数
+          // 儿子有则以儿子为准；
+          // 儿子没有，父亲有，则取父亲的属性
+          options[key] = childVal || parentVal;
         }
       }
     } // 真正合并字段方法
@@ -906,12 +928,7 @@
 
     function handleEndTag(tagName) {
       // 处理到结束标签时，将该元素从栈中移出
-      var element = stack.pop();
-
-      if (element.tag !== tagName) {
-        throw new Error('标签名有误');
-      } // currentParent此时为element的上一个元素
-
+      var element = stack.pop(); // currentParent此时为element的上一个元素
 
       currentParent = stack[stack.length - 1]; // 建立parent和children关系
 
@@ -1124,7 +1141,7 @@
   function compileToFunctions(template) {
     // 1. 把template转成AST语法树；AST用来描述代码本身形成树结构，不仅可以描述html，也能描述css以及js语法
     var ast = parse(template);
-    console.log("AST", ast); // 2. 优化静态节点
+    console.log("🚀AST-----", ast); // 2. 优化静态节点
     // 这个有兴趣的可以去看源码  不影响核心功能就不实现了
     //   if (options.optimize !== false) {
     //     optimize(ast, options);
@@ -1135,14 +1152,14 @@
     // _c代表创建元素 _v代表创建文本 _s代表文Json.stringify--把对象解析成文本
 
     var code = generate(ast);
-    console.log("code", code); // 通过new Function生成函数
+    console.log("🚀renderFunction-----", code); // 通过new Function生成函数
 
     var renderFn = new Function("with(this){return ".concat(code, "}"));
     return renderFn;
   }
 
   function patch(oldVnode, vnode, vm) {
-    // 如果没有el，也没有oldVnode
+    // 如果没有vm.$el，也没有oldVnode，即第一次渲染组件元素
     if (!oldVnode) {
       // 组件的创建过程是没有el属性的
       return createElm(vnode);
@@ -1182,10 +1199,16 @@
         vnode.data;
         vnode.key;
         var children = vnode.children,
-        text = vnode.text; // 判断虚拟dom 是元素节点还是文本节点（文本节点tag为undefined）
+        text = vnode.text; // 判断虚拟dom 是元素节点、自定义组件 还是文本节点（文本节点tag为undefined）
 
     if (typeof tag === "string") {
+      // 如果是组件，返回组件渲染的真实dom
+      if (createComponent$1(vnode)) {
+        return vnode.componentInstance.$el;
+      } // 否则是元素
       // 虚拟dom的el属性指向真实dom，方便后续更新diff算法操作
+
+
       vnode.el = document.createElement(tag); // 解析vnode属性
 
       updateProperties(vnode); // 如果有子节点就递归插入到父节点里面
@@ -1194,10 +1217,26 @@
         return vnode.el.appendChild(createElm(child));
       });
     } else {
+      // 否则是文本节点
       vnode.el = document.createTextNode(text);
     }
 
     return vnode.el;
+  } // 创建组件的真实dom
+
+
+  function createComponent$1(vnode) {
+    // 初始化组件，创建组件实例
+    var i = vnode.data; // 相当于执行 vnode.data.hook.init(vnode)
+
+    if ((i = i.hook) && (i = i.init)) {
+      i(vnode);
+    } // 如果组件实例化完毕，有componentInstance属性，那证明是组件
+
+
+    if (vnode.componentInstance) {
+      return true;
+    }
   } // 解析vnode的data属性，映射到真实dom上
 
 
@@ -1300,6 +1339,7 @@
       // 将合并之后的结果放到vm.$options上
 
       vm.$options = mergeOptions(vm.constructor.options, options);
+      console.log('$options-----', vm.$options);
       callHook(vm, "beforeCreate"); // 初始化状态，包括initProps、initMethod、initData、initComputed、initWatch等
 
       initState(vm);
@@ -1356,10 +1396,6 @@
   function Vnode(tag, data, key, children, text, componentOptions) {
     _classCallCheck(this, Vnode);
 
-    // console.log(
-    //   "🚀 ~ file: index.js ~ line 5 ~ Vnode ~ constructor ~ componentOptions",
-    //   componentOptions
-    // );
     this.tag = tag;
     this.data = data;
     this.key = key;
@@ -1378,18 +1414,38 @@
     if (isReservedTag(tag)) {
       return new Vnode(tag, data, key, children);
     } else {
-      console.log("将自定义组件render函数解析成Vnode"); // 否则就是组件
+      // 否则就是组件
+      var Ctor = vm.$options.components[tag]; // 获取组件的构造函数
 
-      vm.$options.components[tag]; //获取组件的构造函数
-
-      return createComponent();
+      return createComponent(vm, tag, data, key, children, Ctor);
     }
   } // 组件处理
 
-  function createComponent(vm, tag, data, key, children, Ctor) {// todo...如果 _c(tag,...) 创建的是自定义组件，如何处理？
-    //   if (isObject(Ctor)) {
-    //     Ctor = vm.$options._base.extend(Ctor);
-    //   }
+  function createComponent(vm, tag, data, key, children, Ctor) {
+    // Ctor如果是局部组件，则为一个对象；如果是全局组件（Vue.component创建的），则为一个构造函数
+    if (isObject(Ctor)) {
+      Ctor = vm.$options._base.extend(Ctor);
+    } // 定义组件自己内部的生命周期；
+    // 【关键】等会渲染组件时，需要调用此初始化方法
+
+
+    data.hook = {
+      // 组件创建过程的自身初始化方法
+      init: function init(vnode) {
+        // new Ctor()相当于执行Vue.extend()，即相当于new Sub；则组件会将自己的配置与{ _isComponent: true }合并
+        var child = vnode.componentInstance = new Ctor({
+          _isComponent: true
+        }); // 实例化组件
+        // 因为没有传入el属性，需要手动挂载，为了在组件实例上面增加$el方法可用于生成组件的真实渲染节点
+
+        child.$mount(); // 组件挂载后会在vm上添加vm.$el 真实dom节点
+      }
+    }; // 组件vnode也叫占位符vnode  ==> $vnode
+
+    return new Vnode("vue-component-".concat(Ctor.cid, "-").concat(tag), data, key, undefined, undefined, {
+      Ctor: Ctor,
+      children: children
+    });
   } // 创建文本vnode
 
 
@@ -1423,7 +1479,7 @@
       var render = vm.$options.render; // 生成vnode--虚拟dom
 
       var vnode = render.call(vm);
-      console.log("🚀 ~ file: render.js ~ renderMixin ~ _render ~ vnode", vnode);
+      console.log("🚀vnode-----", vnode);
       return vnode;
     }; // 挂载在原型的nextTick方法
 
@@ -1440,11 +1496,57 @@
     };
   }
 
+  function initExtend(Vue) {
+    var cid = 0; // Vue.extend(extendOptions)做的事情就是：创建子类，继承Vue父类；并且身上有父类的所有功能
+
+    Vue.extend = function (extendOptions) {
+      // 创建子类的构造函数，并且调用初始化方法
+      var Sub = function VueComponent(options) {
+        this._init(options); // this指向子类的实例
+
+      };
+
+      Sub.cid = cid++; // 组件的唯一标识
+      // 使用原型继承，将子类继承父类
+
+      Sub.prototype = Object.create(this.prototype); // 子类原型指向父类
+
+      Sub.prototype.constructor = Sub; // constructor指向自己
+
+      Sub.options = mergeOptions(this.options, extendOptions); // 合并自己的extendOptions和父类的options（即Vue.options）
+
+      return Sub;
+    };
+  }
+
+  function initAssetRegisters(Vue) {
+    ASSETS_TYPE.forEach(function (type) {
+      Vue[type] = function (id, definition) {
+        if (type === "component") {
+          // Vue.component(id,definition)就是调用 Vue.extend(definition)，并配置Vue.options.components.id = definition
+          definition = this.options._base.extend(definition);
+        } // 配置Vue.options[components/filters/directive]
+
+
+        this.options[type + "s"][id] = definition;
+      };
+    });
+  }
+
   function initGlobalApi(Vue) {
     // 每个组件初始化的时候都会和Vue.options选项进行合并
     Vue.options = {}; // 用来存放全局属性，例如Vue.component、Vue.filter、Vue.directive
 
-    initMixin(Vue);
+    initMixin(Vue); // 初始化Vue.options.components、Vue.options.directives、Vue.options.filters设为空对象
+
+    ASSETS_TYPE.forEach(function (type) {
+      Vue.options[type + "s"] = {};
+    }); // Vue.options会与组件的options合并，所以无论创建多少子类，都可以通过实例的options._base找到Vue
+
+    Vue.options._base = Vue;
+    initExtend(Vue); // 注册extend方法
+
+    initAssetRegisters(Vue); // 注册Vue.component()、Vue.filter()、Vue.directive()方法
   }
 
   function Vue(options) {

@@ -14,6 +14,7 @@ export function initMixin(Vue) {
     // 将全局的Vue.options（也有可能是继承的其他组件的options，所以下面使用的是vm.constructor.options而不是Vue.options）与组件中的options进行合并
     // 将合并之后的结果放到vm.$options上
     vm.$options = mergeOptions(vm.constructor.options, options);
+    console.log('$options-----',vm.$options)
     callHook(vm, "beforeCreate");
     
     // 初始化状态，包括initProps、initMethod、initData、initComputed、initWatch等

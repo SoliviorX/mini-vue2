@@ -26,7 +26,7 @@ export function renderMixin(Vue) {
     
     // 生成vnode--虚拟dom
     const vnode = render.call(vm);
-    console.log("🚀 ~ file: render.js ~ renderMixin ~ _render ~ vnode", vnode);
+    console.log("🚀vnode-----", vnode);
     return vnode;
   };
 

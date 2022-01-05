@@ -43,9 +43,6 @@ export function parse(template) {
   function handleEndTag(tagName) {
     // 处理到结束标签时，将该元素从栈中移出
     let element = stack.pop();
-    if (element.tag !== tagName) {
-        throw new Error('标签名有误')
-    }
     // currentParent此时为element的上一个元素
     currentParent = stack[stack.length - 1];
     // 建立parent和children关系
