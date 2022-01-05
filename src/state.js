@@ -3,7 +3,7 @@
  */
 
 import { observe } from "./observer/index";
-import { isFunction } from "./utils";
+import { isFunction } from "./util/index";
 import Watcher from "./observer/watcher";
 import Dep from "./observer/dep.js";
 
