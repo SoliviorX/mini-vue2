@@ -10,6 +10,16 @@
     <div id='root'></div>
     <script src="../dist/vue.js"></script>
     <script>
+        Vue.mixin({
+            beforeCreate() {
+                console.log('beforeCreated1')
+            }
+        })
+        Vue.mixin({
+            beforeCreate() {
+                console.log('beforeCreated2')
+            }
+        })
         let vm = new Vue({
             el: '#root',
             data() {
@@ -25,12 +35,10 @@
                     lastName: 'deshan'
                 }
             },
-            template: `<div class="home" id="main" style="font-size:12px;color:red">这是我自己写的vue{{fullName}}</div>`,
-
-            // 计算属性默认不执行 ——> 执行的是Object.defineProperty ——> getter
-            // 多次取值如果依赖的值不变，就不会重新执行
-            // 依赖的值变化了，需要重新执行
-            // dirty 表示这个值是不是脏的，默认为true（取值后变为false）；依赖的值变化了，则dirty=true
+            template: `<div class="home" id="main" style="font-size:12px;color:red">这是我自己写的vue{{number1}}</div>`,
+            beforeCreate() {
+                console.log('beforeCreated3')
+            },
             computed: {
                 fullName() {
                     console.log('走computed')

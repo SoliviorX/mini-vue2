@@ -47,7 +47,7 @@ export function mountComponent(vm, el) {
 }
 
 export function callHook(vm, hook) {
-  // 依次执行生命周期对应的方法
+  // vm.$options[hook]经过mergeOptions合并之后，是一个数组
   const handlers = vm.$options[hook];
   if (handlers) {
     for (let i = 0; i < handlers.length; i++) {

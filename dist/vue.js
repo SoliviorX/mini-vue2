@@ -139,11 +139,94 @@
     throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
   }
 
-  function isFunction(val) {
-    return typeof val === 'function';
+  var LIFECYCLE_HOOKS = ["beforeCreate", "created", "beforeMount", "mounted", "beforeUpdate", "updated", "beforeDestroy", "destroyed"];
+  var strats = {}; // 存放各种策略
+  // 生命周期的合并策略
+
+  function mergeHook(parentVal, childVal) {
+    if (childVal) {
+      if (parentVal) {
+        // 简单说就是数组的合并
+        return parentVal.concat(childVal); // 后续合并
+      } else {
+        return [childVal]; // 第一次合并结果是一个数组（因为第一次合并时，Vue.options为空对象，parentVal为undefined，会走这一步）
+      }
+    } else {
+      return parentVal;
+    }
   }
-  function isObject$1(val) {
-    return _typeof(val) === 'object' && val !== null;
+
+  LIFECYCLE_HOOKS.forEach(function (hook) {
+    strats[hook] = mergeHook;
+  });
+  function mergeOptions(parent, child) {
+    var options = {}; // 合并后的结果
+
+    /**
+     * 遍历父子option中所有的属性，调用mergeFiled进行合并
+     */
+
+    for (var k in parent) {
+      // 遍历父亲所有属性，进行合并
+      mergeFiled(k);
+    }
+
+    for (var _k in child) {
+      // 遍历儿子；对儿子有、父亲没有的属性，同样进行合并
+      if (!parent.hasOwnProperty(_k)) {
+        mergeFiled(_k);
+      }
+    } // 真正进行属性合并的方法
+
+
+    function mergeFiled(key) {
+      var parentVal = parent[key];
+      var childVal = child[key]; // 1. 使用【策略模式】处理生命周期：生命周期的合并，需要合并成数组
+
+      if (strats[key]) {
+        // 不同策略调用对应的方法 来合并parentVal和childVal
+        options[key] = strats[key](parentVal, childVal);
+      } else {
+        // 2. 生命周期外其他数据的合并
+        // 如果parentVal和childVal都是对象的话，则进行对象的合并
+        if (isObject(parentVal) && isObject(childVal)) {
+          options[key] = _objectSpread2(_objectSpread2({}, parentVal), childVal);
+        } else {
+          // 如果有一方为基本数据类型/函数，则以childVal为准
+          options[key] = childVal;
+        }
+      }
+    } // 真正合并字段方法
+    // function mergeFiled(k) {
+    //   // 【策略模式】
+    //   if (strats[k]) {  // 如果有对应的策略
+    //     options[k] = strats[k](parent[k], child[k]);
+    //   } else {
+    //     // 默认策略
+    //     options[k] = child[k] ? child[k] : parent[k];
+    //   }
+    // }
+
+
+    return options;
+  } // 判断val是否是对象/数组
+
+  function isObject(val) {
+    return _typeof(val) === "object" && val !== null;
+  } // 判断是否是函数
+
+  function isFunction(val) {
+    return typeof val === "function";
+  } // 判断tagName是否是普通标签
+
+  function isReservedTag(tagName) {
+    // 定义常见标签
+    var str = "html,body,base,head,link,meta,style,title," + "address,article,aside,footer,header,h1,h2,h3,h4,h5,h6,hgroup,nav,section," + "div,dd,dl,dt,figcaption,figure,picture,hr,img,li,main,ol,p,pre,ul," + "a,b,abbr,bdi,bdo,br,cite,code,data,dfn,em,i,kbd,mark,q,rp,rt,rtc,ruby," + "s,samp,small,span,strong,sub,sup,time,u,var,wbr,area,audio,map,track,video," + "embed,object,param,source,canvas,script,noscript,del,ins," + "caption,col,colgroup,table,thead,tbody,td,th,tr," + "button,datalist,fieldset,form,input,label,legend,meter,optgroup,option," + "output,progress,select,textarea," + "details,dialog,menu,menuitem,summary," + "content,element,shadow,template,blockquote,iframe,tfoot";
+    var obj = {};
+    str.split(",").forEach(function (tag) {
+      obj[tag] = true;
+    });
+    return obj[tagName];
   }
 
   // arrayMethods是继承自Array.prototype，不直接修改Array.prototype，不污染Array.prototype
@@ -359,7 +442,7 @@
 
   function observe(data) {
     // 如果是object类型（对象或数组）才观测；第一次调用observe(vm.$options._data)时，_data一定是个对象，官方要求的写法（data函数返回一个对象）
-    if (!isObject$1(data)) {
+    if (!isObject(data)) {
       return;
     } // 如果已经是响应式的数据，直接return
 
@@ -444,21 +527,6 @@
     has = {};
   }
 
-  // 判断val是否是对象/数组
-  function isObject(val) {
-    return _typeof(val) === 'object' && val !== null;
-  } // 判断tagName是否是普通标签
-
-  function isReservedTag(tagName) {
-    // 定义常见标签
-    var str = "html,body,base,head,link,meta,style,title," + "address,article,aside,footer,header,h1,h2,h3,h4,h5,h6,hgroup,nav,section," + "div,dd,dl,dt,figcaption,figure,picture,hr,img,li,main,ol,p,pre,ul," + "a,b,abbr,bdi,bdo,br,cite,code,data,dfn,em,i,kbd,mark,q,rp,rt,rtc,ruby," + "s,samp,small,span,strong,sub,sup,time,u,var,wbr,area,audio,map,track,video," + "embed,object,param,source,canvas,script,noscript,del,ins," + "caption,col,colgroup,table,thead,tbody,td,th,tr," + "button,datalist,fieldset,form,input,label,legend,meter,optgroup,option," + "output,progress,select,textarea," + "details,dialog,menu,menuitem,summary," + "content,element,shadow,template,blockquote,iframe,tfoot";
-    var obj = {};
-    str.split(",").forEach(function (tag) {
-      obj[tag] = true;
-    });
-    return obj[tagName];
-  }
-
   var id = 0;
 
   var Watcher = /*#__PURE__*/function () {
@@ -485,7 +553,7 @@
        * 1. 渲染watcher中，exprOrFn为updateComponent()，是一个函数
        * 2. 在用户watcher中，exprOrFn为字符串（watch中的属性名，即监听地属性）
        */
-      // 当是渲染watcher时
+      // 当是渲染watcher 或 computed watcher时
 
       if (typeof exprOrFn === "function") {
         this.getter = exprOrFn;
@@ -546,6 +614,7 @@
         }
       } // 更新当前watcher相关的视图
       // Vue中的更新是异步的
+      // 当计算属性的依赖项发生改变，会触发依赖项相关 watcher（一般依赖项会收集computed watcher和渲染watcher，所以下面if、else都会走） 的update方法
 
     }, {
       key: "update",
@@ -562,12 +631,13 @@
           // 异步队列机制
           queueWatcher(this);
         }
-      } // computed计算属性求值
+      } // 在计算属性的代理中，当dirty为true时会执行evaluate
 
     }, {
       key: "evaluate",
       value: function evaluate() {
-        this.value = this.get();
+        this.value = this.get(); // 计算新值，并对依赖项收集computed watcher
+
         this.dirty = false;
       }
     }, {
@@ -1209,7 +1279,7 @@
     callHook(vm, "mounted");
   }
   function callHook(vm, hook) {
-    // 依次执行生命周期对应的方法
+    // vm.$options[hook]经过mergeOptions合并之后，是一个数组
     var handlers = vm.$options[hook];
 
     if (handlers) {
@@ -1223,12 +1293,13 @@
    * initMixin
    * 表示在vue的基础上做一次混合操作
    */
-  function initMixin(Vue) {
+  function initMixin$1(Vue) {
     Vue.prototype._init = function (options) {
       // this指向实例
-      var vm = this;
-      vm.$options = options; // 后面会对options进行扩展
+      var vm = this; // 将全局的Vue.options（也有可能是继承的其他组件的options，所以下面使用的是vm.constructor.options而不是Vue.options）与组件中的options进行合并
+      // 将合并之后的结果放到vm.$options上
 
+      vm.$options = mergeOptions(vm.constructor.options, options);
       callHook(vm, "beforeCreate"); // 初始化状态，包括initProps、initMethod、initData、initComputed、initWatch等
 
       initState(vm);
@@ -1360,18 +1431,36 @@
     Vue.prototype.$nextTick = nextTick;
   }
 
+  function initMixin(Vue) {
+    Vue.mixin = function (mixin) {
+      // this 指向 VUe，this.options即Vue.options
+      // 将mixin合并到Vue.options中，而组件会和Vue.options合并，所以最后会把mixin合并到组件中
+      this.options = mergeOptions(this.options, mixin);
+      return this;
+    };
+  }
+
+  function initGlobalApi(Vue) {
+    // 每个组件初始化的时候都会和Vue.options选项进行合并
+    Vue.options = {}; // 用来存放全局属性，例如Vue.component、Vue.filter、Vue.directive
+
+    initMixin(Vue);
+  }
+
   function Vue(options) {
     // new Vue创建实例时会调用_init()方法
     this._init(options);
   }
 
-  initMixin(Vue); // 在原型上挂载_init()（数据监控；props、events、computed、watch初始化等）、$mount()（compiler流程）方法
+  initMixin$1(Vue); // 在原型上挂载_init()（数据监控；props、events、computed、watch初始化等）、$mount()（compiler流程）方法
 
   lifecycleMixin(Vue); // 在原型上挂载 _update()方法（第一次创建dom及更新dom（有diff过程））
 
   renderMixin(Vue); //  在原型上挂载_c、_v、_s、$nextTick、_render()方法
 
-  stateMixin(Vue);
+  stateMixin(Vue); // initData、initComputed、initWatch等
+
+  initGlobalApi(Vue); // initMixin（Vue.mixin(options)）
 
   return Vue;
 

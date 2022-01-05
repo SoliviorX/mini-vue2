@@ -1,4 +1,4 @@
-import { isObject } from "../utils";
+import { isObject } from "../util/index";
 import { arrayMethods } from "./array";
 import Dep from "./dep";
 
