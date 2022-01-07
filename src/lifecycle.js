@@ -6,8 +6,8 @@ export function lifecycleMixin(Vue) {
   // 更新的时候，不会重新进行模板编译，因为更新只是数据发生变化，render函数没有改变。
   Vue.prototype._update = function (vnode) {
     const vm = this;
-    const prevVnode = vm._vnode; // 保留上一次的vnode
-    vm._vnode = vnode; // 获取本次的vnode
+    const prevVnode = vm._vnode; // 获取上一次的vnode
+    vm._vnode = vnode; // 保存本次的vnode
 
     // 【核心】patch是渲染vnode为真实dom
     if (!prevVnode) {
@@ -15,7 +15,7 @@ export function lifecycleMixin(Vue) {
       vm.$el = patch(vm.$el, vnode); // 初次渲染 vm._vnode肯定不存在 要通过虚拟节点 渲染出真实的dom 赋值给$el属性
     } else {
       // 视图更新
-      vm.$el = patch(prevVnode, vnode, vm); // 更新时把上次的vnode和这次更新的vnode穿进去 进行diff算法
+      vm.$el = patch(prevVnode, vnode); // 更新时把上次的vnode和这次更新的vnode穿进去 进行diff算法
     }
   };
 }
@@ -25,6 +25,7 @@ export function lifecycleMixin(Vue) {
  * 2. 将VNode渲染成真实DOM —— 即执行 vm._update(VNode)
  */
 export function mountComponent(vm, el) {
+  // 定义vm.$el，如果时组件，options上没有el属性，vm.$el为undefined
   vm.$el = el;
   // 执行beforeMount生命周期钩子
   callHook(vm, "beforeMount");

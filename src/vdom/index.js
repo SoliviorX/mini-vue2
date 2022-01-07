@@ -53,7 +53,7 @@ function createComponent(vm, tag, data, key, children, Ctor) {
 
   // 组件vnode也叫占位符vnode  ==> $vnode
   return new Vnode(
-    `vue-component-${Ctor.cid}-${tag}`,
+    `vue-component-${tag}`,
     data,
     key,
     undefined,

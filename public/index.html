@@ -33,10 +33,23 @@
         // 局部组件
         components: {
           "child-component": {
-            template: `<div>我是局部组件</div>`,
+            data() {
+              return{
+                number2: 4
+              }
+            },
+            mounted() {
+              setTimeout(() => {
+                this.number2 = 6
+              },2000)
+            },
+            template: `<div key="haha">我是局部组件{{number2}}</div>`,
           },
         },
       });
+      // setTimeout(() => {
+      //   vm.number1 = 3
+      // },4000)
     </script>
   </body>
 </html>
