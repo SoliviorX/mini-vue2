@@ -1,7 +1,6 @@
 # 手写Vue2源码
 
-### 实现Vue2大部分功能，包括但不限于：数据响应式、模板编译、虚拟DOM、Diff算法、生命周期、keep-alive、GlobalAPI（minin、extend、filter、directive等），基于rollup打包；通过手写Vue2源码，可以对Vue2了解得更加透彻。
-
+### 实现Vue2大部分功能，包括但不限于：数据响应式、模板编译、虚拟DOM、Diff算法、生命周期、keep-alive、GlobalAPI（minin、extend、filter、directive等），基于rollup打包；
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **中文** | [English](./README.EN.md)
